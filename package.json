@@ -1,0 +1,16 @@
+{
+  "name": "second-hand-marketplace",
+  "version": "1.0.0",
+  "description": "A polished local second-hand marketplace",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "eslint": "^10.10.0",
+    "prettier": "^3.9.6"
+  }
+}
