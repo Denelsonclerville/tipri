@@ -4,7 +4,8 @@
   "description": "A polished local second-hand marketplace",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "echo 'No build step'"
   },
   "dependencies": {
     "express": "^4.21.2"
