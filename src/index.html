@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A trusted local marketplace for pre-owned goods." />
-    <title>Second Hand Market | Find good things nearby</title>
+    <title>Tipri</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,207 +14,32 @@
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
   <body>
-    <section class="auth-gate" id="auth-gate">
-      <nav class="gate-nav">
-        <a class="brand" href="#auth-gate" aria-label="Second Hand Market home"
-          ><span class="brand-mark">SH</span
-          ><span>Second Hand<span class="brand-accent">.</span></span></a
-        ><span class="gate-nav-note">A better way to buy and sell locally</span>
-        <div class="gate-weather" id="gate-weather">
-          <span class="gate-weather-main"
-            ><span class="weather-icon">☀</span><strong>30°C</strong
-            ><small>Port-au-Prince · Sunny</small></span
-          ><span class="weather-stat"><b>H 31°</b><b>L 24°</b></span
-          ><span class="weather-stat"><b>↑ 06:15 AM</b><b>↓ 06:20 PM</b></span>
-        </div>
-      </nav>
-      <div class="gate-content presentation-content">
+    <section class="auth-gate presentation-gate" id="welcome-gate" aria-labelledby="welcome-title">
+      <main class="gate-content presentation-content">
         <div class="gate-copy">
-          <p class="eyebrow">Welcome to your local market</p>
-          <h1>Give good things<br /><em>a second chapter.</em></h1>
-          <p class="gate-description">
-            Discover useful finds, meet trusted sellers, and pass along what you no longer need.
-          </p>
-          <div class="entry-actions" aria-label="Choose your marketplace journey">
-            <button class="button button-dark" id="buyer-entry">I am here to buy <span>↗</span></button>
-            <button class="button button-bright" id="seller-entry">I am here to sell <span>↗</span></button>
+          <p class="eyebrow">A better way to pass things on</p>
+          <h1 id="welcome-title">Local finds.<br><em>Shared safely.</em></h1>
+          <p class="gate-description">Tipri brings neighbors together to buy and sell pre-loved things nearby. Keep useful items in circulation, meet locally, and build a more connected community.</p>
+          <div class="entry-actions">
+            <button class="button button-dark" id="buyer-btn" type="button">I want to Buy <span aria-hidden="true">↗</span></button>
+            <button class="button button-bright" id="seller-btn" type="button">I want to Sell <span aria-hidden="true">↗</span></button>
           </div>
+          <div class="gate-proof"><span class="proof-check" aria-hidden="true">✓</span><span><strong>Local by design</strong><small>Browse nearby listings and arrange a safe local meetup.</small></span></div>
         </div>
-      </div>
-    </section>
-    <div class="page-shell app-shell" id="app-shell">
-      <header class="site-header">
-        <a class="brand" href="#top" aria-label="Second Hand Market home"
-          ><span class="brand-mark">SH</span
-          ><span>Second Hand<span class="brand-accent">.</span></span></a
-        >
-        <div class="weather" id="weather-widget">
-          <span class="weather-icon">☀</span
-          ><span><strong>30°C</strong><small>Port-au-Prince · Sunny</small></span>
-        </div>
-        <div class="header-search">
-          <span>⌕</span
-          ><input
-            id="header-search"
-            type="search"
-            placeholder="Search listings..."
-            aria-label="Search listings"
-          />
-        </div>
-        <nav class="header-actions" aria-label="Marketplace shortcuts">
-          <button class="text-button" id="favorites-button">&#10084;&#65039; Favorites (0)</button>
-          <button class="text-button listings-nav-button" id="listings-button" hidden>&#128230; My Listings</button>
-        </nav>
-        <div class="auth-area" id="auth-area">
-          <button class="text-button" id="login-button">Log in</button
-          ><button class="button button-dark" id="post-top-button">
-            Post an item <span>↗</span>
-          </button>
-        </div>
-        <button class="menu-button" id="menu-button" aria-label="Open navigation">☰</button>
-      </header>
-      <main id="top">
-        <section class="hero-section">
-          <div class="hero-copy">
-            <p class="eyebrow">Your local marketplace</p>
-            <h1>Good things<br /><em>find new homes.</em></h1>
-            <p class="hero-text">
-              Buy and sell pre-loved items with people in your community. Better for your wallet,
-              better for the planet.
-            </p>
-            <div class="hero-actions">
-              <button class="button button-bright" id="browse-button">
-                Browse listings <span>↓</span></button
-              ><button class="button button-post-hero" id="hero-post-button">
-                Post an item <span>↗</span>
-              </button>
-            </div>
-            <div class="trust-row">
-              <div class="avatar-stack"><span>JM</span><span>AL</span><span>SK</span><b>+</b></div>
-              <p><strong>2,400+</strong> locals are buying<br />and selling this month</p>
-            </div>
-          </div>
-          <div class="hero-art" aria-label="Featured marketplace items">
-            <div class="art-glow"></div>
-            <div class="art-note note-one">↗ TRENDING NOW</div>
-            <div class="art-note note-two">LOCAL FINDS</div>
-            <div class="art-card art-card-main">
-              <img
-                src="https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=900&q=85"
-                alt="Sunlit mid-century chair"
-              />
-              <div class="art-card-info">
-                <span>Furniture</span><strong>Mid-century lounge chair</strong
-                ><small>$180 · Pétion-Ville</small>
-              </div>
-            </div>
-            <div class="art-card art-card-small">
-              <img
-                src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=85"
-                alt="Classic wristwatch"
-              />
-              <div class="art-card-info">
-                <span>Accessories</span><strong>Classic timepiece</strong
-                ><small>$95 · Delmas</small>
-              </div>
-            </div>
-            <div class="scribble">✳</div>
-          </div>
-        </section>
-        <section class="live-feed-section" aria-labelledby="live-feed-title">
-          <div class="live-feed-heading">
-            <div><span class="live-feed-pulse"></span><p class="eyebrow">Live now</p><h2 id="live-feed-title">Live <em>Marketplace Feed</em></h2></div>
-            <span class="live-feed-caption">Fresh equipment moving across the island</span>
-          </div>
-          <div class="live-feed-window"><div class="live-feed-track" id="live-feed-track"></div></div>
-        </section>
-        <section class="market-section" id="market">
-          <div class="section-heading">
-            <div>
-              <p class="eyebrow">Explore the market</p>
-              <h2>Find your next <em>favorite.</em></h2>
-            </div>
-            <span class="listing-count" id="listing-count">06 listings</span>
-          </div>
-          <div class="filter-bar">
-            <div class="filter-search">
-              <span>⌕</span
-              ><input id="catalog-search" type="search" placeholder="What are you looking for?" />
-            </div>
-            <select id="category-filter" aria-label="Filter by category">
-              <option value="">All categories</option>
-              <option>Vehicles & Motorcycles</option>
-              <option>Generators & Energy Systems</option>
-              <option>Heavy Home Appliances</option>
-              <option>Electronics</option>
-              <option>Furniture</option>
-              <option>Appliances</option>
-              <option>Solar & Tech</option>
-              <option>Clothing</option></select
-            ><select id="location-filter" aria-label="Filter by location">
-              <option value="">All locations</option>
-              <option>Pétion-Ville</option>
-              <option>Delmas</option>
-              <option>Tabarre</option>
-              <option>Turgeau</option>
-              <option>Kenscoff</option>
-              <option>Carrefour</option></select
-            ><select id="condition-filter" aria-label="Filter by condition">
-              <option value="">Any condition</option>
-              <option>Like New</option>
-              <option>Good Condition</option>
-              <option>Needs Minor Repair</option>
-            </select>
-          </div>
-          <div class="category-row">
-            <button class="category-pill active" data-category="">All items</button>
-            <button class="category-pill priority" data-category="Vehicles & Motorcycles">🚗 Vehicles & Motorcycles</button>
-            <button class="category-pill priority" data-category="Generators & Energy Systems">⚡ Generators & Energy Systems</button>
-            <button class="category-pill priority" data-category="Heavy Home Appliances">🔌 Heavy Home Appliances</button>
-            <button class="category-pill" data-category="Electronics">Electronics</button>
-            <button class="category-pill" data-category="Furniture">Furniture</button>
-            <button class="category-pill" data-category="Solar & Tech">Solar & Tech</button>
-            <button class="category-pill" data-category="Clothing">Clothing</button>
-            <button class="category-pill" data-category="Appliances">Appliances</button>
-          </div>
-          <div class="product-grid" id="product-grid"></div>
-          <div class="empty-state" id="empty-state" hidden>
-            <strong>No listings found</strong>
-            <p>Try adjusting your search or filters.</p>
-          </div>
-        </section>
-        <section class="safety-banner">
-          <div class="safety-icon">✓</div>
-          <div>
-            <strong>Trade with confidence</strong>
-            <p>Meet in public places, inspect items carefully, and trust your instincts.</p>
-          </div>
-          <a href="#" id="safety-link">Our safety guide <span>↗</span></a>
-        </section>
       </main>
-      <footer>
-        <a class="brand" href="#top"
-          ><span class="brand-mark">SH</span
-          ><span>Second Hand<span class="brand-accent">.</span></span></a
-        >
-        <p>Good things deserve a second chapter.</p>
-        <span>© 2026 Second Hand Market</span>
-      </footer>
-    </div>
-    <aside class="drawer" id="favorites-drawer" hidden aria-labelledby="favorites-title">
-      <div class="drawer-header"><div><p class="eyebrow">Saved for later</p><h2 id="favorites-title">Your <em>favorites.</em></h2></div><button class="modal-close" data-close-drawer="favorites-drawer" aria-label="Close favorites">×</button></div>
-      <div id="favorites-content"></div>
-    </aside>
-    <aside class="drawer" id="listings-drawer" hidden aria-labelledby="listings-title">
-      <div class="drawer-header"><div><p class="eyebrow">Seller dashboard</p><h2 id="listings-title">My <em>listings.</em></h2></div><button class="modal-close" data-close-drawer="listings-drawer" aria-label="Close listings">×</button></div>
-      <div id="listings-content"></div>
-    </aside>
+    </section>
+    <footer id="contact">
+      <a class="brand" href="/" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
+      <p>Local reuse, made safer.</p>
+      <nav class="footer-links" aria-label="Legal links"><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></nav>
+      <span>© 2026 Tipri</span>
+    </footer>
     <div class="modal-backdrop" id="modal-backdrop" hidden>
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <button class="modal-close" id="modal-close" aria-label="Close dialog">×</button>
         <div id="modal-content"></div>
       </section>
     </div>
-    <script type="module" src="/js/main.js"></script>
+    <script type="module" src="/js/presentation.js"></script>
   </body>
 </html>

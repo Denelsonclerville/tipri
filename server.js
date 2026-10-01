@@ -43,7 +43,7 @@ app.get('/api/weather', async (req, res) => {
       location = place.name;
     }
 
-    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${resolvedLatitude}&longitude=${resolvedLongitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=1`);
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${resolvedLatitude}&longitude=${resolvedLongitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=3`);
     if (!response.ok) throw new Error('Weather service unavailable');
     const data = await response.json();
     const current = data.current;
@@ -57,25 +57,42 @@ app.get('/api/weather', async (req, res) => {
     };
     res.json({
       temperature: current?.temperature_2m !== undefined ? `${Math.round(current.temperature_2m)}°C` : '30°C',
+      humidity: current?.relative_humidity_2m !== undefined ? `${Math.round(current.relative_humidity_2m)}%` : '--',
+      wind: current?.wind_speed_10m !== undefined ? `${Math.round(current.wind_speed_10m)} km/h` : '--',
       condition: weatherCodes[current?.weather_code] || 'Current conditions',
       high: daily?.temperature_2m_max?.[0] !== undefined ? `${Math.round(daily.temperature_2m_max[0])}°` : '31°',
       low: daily?.temperature_2m_min?.[0] !== undefined ? `${Math.round(daily.temperature_2m_min[0])}°` : '24°',
       sunrise: daily?.sunrise?.[0] ? new Date(daily.sunrise[0]).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '06:15 AM',
       sunset: daily?.sunset?.[0] ? new Date(daily.sunset[0]).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '06:20 PM',
+      forecast: (daily?.time || []).map((date, index) => ({
+        day: index === 0 ? 'Today' : new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short' }),
+        condition: weatherCodes[daily.weather_code?.[index]] || 'Current conditions',
+        high: daily.temperature_2m_max?.[index] !== undefined ? `${Math.round(daily.temperature_2m_max[index])}°` : '--',
+        low: daily.temperature_2m_min?.[index] !== undefined ? `${Math.round(daily.temperature_2m_min[index])}°` : '--'
+      })),
       location
     });
   } catch (error) {
-    res.json({ temperature: '30°C', condition: 'Sunny', icon: '113', high: '31°', low: '24°', sunrise: '06:15 AM', sunset: '06:20 PM', location: 'Port-au-Prince', fallback: true });
+    res.status(502).json({ error: error.message || 'Weather service unavailable' });
   }
 });
 
 app.post('/post-item', (req, res) => {
-  const { title, price, currency, category, condition, description, location, image, phone, owner } = req.body;
+  const { title, price, currency, category, condition, description, location, phone, owner } = req.body;
+  const image = req.body.image_url || req.body.image;
   if (!title || !price || !category || !condition || !location || !phone) {
     return res.status(400).json({ error: 'Please complete all required fields.' });
   }
 
   const products = readProducts();
+  const imageUrl = image?.trim() || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
+  const isDuplicate = products.some((existing) =>
+    String(existing.title || '').trim().toLowerCase() === title.trim().toLowerCase() &&
+    Number(existing.price) === Number(price) &&
+    String(existing.image_url || existing.image || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80').trim() === imageUrl
+  );
+  if (isDuplicate) return res.status(409).json({ error: 'This item already exists in the marketplace.' });
+
   const product = {
     id: Date.now(),
     title: title.trim(),
@@ -85,10 +102,12 @@ app.post('/post-item', (req, res) => {
     condition,
     description: description?.trim() || '',
     location: location.trim(),
-    image: image?.trim() || 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80',
+    image: imageUrl,
+    image_url: imageUrl,
     phone: phone.replace(/[^0-9+]/g, ''),
     owner: owner || 'local-seller',
     sold: false,
+    status: 'active',
     posted: 'Just now'
   };
   products.unshift(product);
@@ -108,8 +127,10 @@ app.patch('/api/products/:id', (req, res) => {
     description: req.body.description?.trim() ?? product.description,
     location: req.body.location?.trim() || product.location,
     phone: req.body.phone ? req.body.phone.replace(/[^0-9+]/g, '') : product.phone,
-    image: req.body.image?.trim() || product.image,
-    sold: typeof req.body.sold === 'boolean' ? req.body.sold : product.sold
+    image: req.body.image?.trim() || req.body.image_url?.trim() || product.image,
+    image_url: req.body.image_url?.trim() || req.body.image?.trim() || product.image_url || product.image,
+    sold: typeof req.body.sold === 'boolean' ? req.body.sold : product.sold,
+    status: typeof req.body.sold === 'boolean' ? (req.body.sold ? 'sold' : 'active') : product.status || (product.sold ? 'sold' : 'active')
   });
   writeProducts(products);
   res.json(product);

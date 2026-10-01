@@ -1,4 +1,3 @@
-// Replace these values with the Firebase Web App configuration from your project settings.
 export const firebaseConfig = {
   apiKey: 'YOUR_FIREBASE_API_KEY',
   authDomain: 'YOUR_FIREBASE_PROJECT.firebaseapp.com',
@@ -7,3 +6,5 @@ export const firebaseConfig = {
   messagingSenderId: 'YOUR_FIREBASE_MESSAGING_SENDER_ID',
   appId: 'YOUR_FIREBASE_APP_ID'
 };
+
+export const isDemoMode = Object.values(firebaseConfig).some((value) => String(value).includes('YOUR_'));

@@ -2,9 +2,13 @@ import { createProduct, deleteProduct, fetchProducts, updateProduct } from './ap
 import { registerWithEmail, signInWithEmail, signInWithProviderCredentials, signInWithFacebook, signInWithGoogle, getAuthSetupMessage, logOut } from './auth.js';
 import { isFavorite, readFavorites, readFilters, readMyListings, readPreferences, removeFavorite, removeMyListing, saveFavorite, saveFilters, saveMyListing, savePreferences, saveUser, saveUserLocation, updateMyListing } from './storage.js';
 
-export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, journey: 'seller' };
+export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, pendingSellerAccess: false, currentMode: 'buyer', visibleProductLimit: 8 };
+const DEFAULT_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
+let marketplaceMap = null;
+let listingMarkers = [];
+let featuredProductIds = [];
 
 export function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character])); }
 
@@ -17,13 +21,60 @@ function mergeListingState(products) {
   const listings = readMyListings();
   return products.map((product) => {
     const listing = listings.find((item) => String(item.id) === String(product.id));
-    return listing ? { ...product, sold: listing.status === 'Sold' } : product;
+    return listing ? { ...product, status: listing.status.toLowerCase(), sold: listing.status === 'Sold' } : product;
   });
 }
 
 function renderFavoriteCount() {
-  const button = $('#favorites-button');
-  if (button) button.innerHTML = `&#10084;&#65039; Favorites (${readFavorites().length})`;
+  const count = $('#favorite-count');
+  if (count) count.textContent = String(readFavorites().length);
+  const button = $('#bottom-favorites');
+  if (button) button.setAttribute('aria-label', `Saved favorites, ${readFavorites().length} items`);
+}
+
+function locationCoordinates(location = '') {
+  const places = {
+    'pétion-ville': [18.512, -72.286],
+    delmas: [18.544, -72.302],
+    tabarre: [18.583, -72.27],
+    turgeau: [18.532, -72.33],
+    kenscoff: [18.448, -72.283],
+    carrefour: [18.541, -72.399]
+  };
+  return places[location.toLowerCase()] || [18.539, -72.336];
+}
+
+function initializeMap(products = state.products) {
+  if (!window.L || !$('#map-view')) return;
+  const center = [18.539, -72.336];
+  if (!marketplaceMap) {
+    marketplaceMap = window.L.map('map-view', { scrollWheelZoom: false }).setView(center, 12);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(marketplaceMap);
+  }
+  listingMarkers.forEach((marker) => marker.remove());
+  listingMarkers = products.map((product) => {
+    const marker = window.L.marker(locationCoordinates(product.location)).addTo(marketplaceMap);
+    marker.bindPopup(`<strong>${escapeHtml(product.title)}</strong><br>${escapeHtml(product.location)}`);
+    marker.on('click', () => {
+      state.filters.location = product.location || '';
+      syncFilterInputs();
+      renderProducts();
+    });
+    return marker;
+  });
+  window.requestAnimationFrame(() => marketplaceMap.invalidateSize());
+}
+
+function randomProducts(products, limit) {
+  const shuffled = [...products];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled.slice(0, limit);
 }
 
 function renderLiveFeed() {
@@ -47,14 +98,16 @@ function closeDrawer(id) {
 
 function renderFavorites() {
   const favorites = readFavorites();
-  $('#favorites-content').innerHTML = favorites.length ? `<div class="saved-list">${favorites.map((product) => `<article class="saved-item"><img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.title)}"><div><h3>${escapeHtml(product.title)}</h3><p>${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()} · ${escapeHtml(product.location)}</p><div class="saved-actions"><button class="drawer-action" data-favorite-contact="${escapeHtml(product.id)}">WhatsApp ↗</button><button class="drawer-action danger" data-favorite-remove="${escapeHtml(product.id)}">Remove from Favorites</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have no saved items yet. Tap the heart on a listing to keep it here.</p>';
+  $('#favorites-content').innerHTML = favorites.length ? `<div class="saved-list">${favorites.map((product) => `<article class="saved-item"><img src="${escapeHtml(product.image_url || product.image)}" alt="${escapeHtml(product.title)}"><div><h3>${escapeHtml(product.title)}</h3><p>${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()} · ${escapeHtml(product.location)}</p><div class="saved-actions"><button class="drawer-action" data-favorite-contact="${escapeHtml(product.id)}">WhatsApp ↗</button><button class="drawer-action danger" data-favorite-remove="${escapeHtml(product.id)}">Remove from Favorites</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have no saved items yet. Tap the heart on a listing to keep it here.</p>';
   $$('[data-favorite-contact]').forEach((button) => button.addEventListener('click', () => contactSeller(favorites.find((item) => String(item.id) === button.dataset.favoriteContact))));
   $$('[data-favorite-remove]').forEach((button) => button.addEventListener('click', () => { removeFavorite(button.dataset.favoriteRemove); renderFavoriteCount(); renderFavorites(); renderProducts(); }));
 }
 
 function renderMyListings() {
   const listings = readMyListings().filter((listing) => listing.ownerId === currentUserId());
-  $('#listings-content').innerHTML = listings.length ? `<div class="seller-list">${listings.map((listing) => `<article class="seller-item"><img src="${escapeHtml(listing.image)}" alt="${escapeHtml(listing.title)}"><div><h3>${escapeHtml(listing.title)}</h3><p>${listing.currency === 'USD' ? '$' : listing.currency + ' '}${Number(listing.price).toLocaleString()} · <span class="seller-status ${listing.status === 'Sold' ? 'sold' : ''}">${listing.status}</span></p><div class="seller-actions"><button class="drawer-action" data-listing-edit="${escapeHtml(listing.id)}">Edit Price/Description</button><button class="drawer-action" data-listing-toggle="${escapeHtml(listing.id)}">Mark as ${listing.status === 'Sold' ? 'Active' : 'Sold'}</button><button class="drawer-action danger" data-listing-delete="${escapeHtml(listing.id)}">Delete Listing</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have not posted any listings yet.</p>';
+  const account = `<div class="account-summary"><span>${escapeHtml(state.authenticatedUser?.email || state.authenticatedUser?.displayName || 'Signed in')}</span><button class="drawer-action" id="drawer-logout">Log out</button></div>`;
+  $('#listings-content').innerHTML = `${account}${listings.length ? `<div class="seller-list">${listings.map((listing) => `<article class="seller-item"><img src="${escapeHtml(listing.image_url || listing.image)}" alt="${escapeHtml(listing.title)}"><div><h3>${escapeHtml(listing.title)}</h3><p>${listing.currency === 'USD' ? '$' : listing.currency + ' '}${Number(listing.price).toLocaleString()} · <span class="seller-status ${listing.status === 'Sold' ? 'sold' : ''}">${escapeHtml(listing.status)}</span></p><div class="seller-actions"><button class="drawer-action" data-listing-edit="${escapeHtml(listing.id)}">Edit Price/Description</button><button class="drawer-action" data-listing-toggle="${escapeHtml(listing.id)}">Mark as ${listing.status === 'Sold' ? 'Active' : 'Sold'}</button><button class="drawer-action danger" data-listing-delete="${escapeHtml(listing.id)}">Delete Listing</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have not posted any listings yet.</p>'}`;
+  $('#drawer-logout').addEventListener('click', () => logOut());
   $$('[data-listing-edit]').forEach((button) => button.addEventListener('click', () => openListingEditor(button.dataset.listingEdit)));
   $$('[data-listing-toggle]').forEach((button) => button.addEventListener('click', () => toggleListingStatus(button.dataset.listingToggle)));
   $$('[data-listing-delete]').forEach((button) => button.addEventListener('click', () => deleteListing(button.dataset.listingDelete)));
@@ -63,24 +116,37 @@ function renderMyListings() {
 async function refreshCatalog() {
   state.products = mergeListingState(await fetchProducts());
   renderLiveFeed();
+  initializeMap();
   renderProducts();
 }
 
 export function renderProducts() {
   const { query, category, location, condition } = state.filters;
   const products = state.products.filter((product) => {
-    const text = `${product.title} ${product.description} ${product.category}`.toLowerCase();
+    const text = `${product.title} ${product.description} ${product.category} ${product.location}`.toLowerCase();
     return (!query || text.includes(query.toLowerCase())) && (!category || product.category === category) && (!location || product.location === location) && (!condition || product.condition === condition);
   });
+  const hasFilters = Boolean(query || category || location || condition);
+  if (!hasFilters && !featuredProductIds.some((id) => products.some((product) => String(product.id) === id))) {
+    featuredProductIds = randomProducts(products, 8).map((product) => String(product.id));
+  }
+  const visibleProducts = hasFilters
+    ? products
+    : featuredProductIds.map((id) => products.find((product) => String(product.id) === id)).filter(Boolean);
   $('#listing-count').textContent = `${String(products.length).padStart(2, '0')} listing${products.length === 1 ? '' : 's'}`;
   $('#empty-state').hidden = products.length > 0;
-  $('#product-grid').innerHTML = products.map((product, index) => `<article class="product-card ${product.sold ? 'is-sold' : ''}" style="animation-delay: ${index * 50}ms"><div class="product-image"><img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.title)}" loading="lazy"><span class="condition-badge ${product.condition.includes('Repair') ? 'repair' : ''}">${escapeHtml(product.condition)}</span><span class="listing-status ${product.sold ? 'sold' : ''}">${product.sold ? 'Sold' : 'Active'}</span><button class="favorite-button ${isFavorite(product.id) ? 'is-favorite' : ''}" data-product-id="${escapeHtml(product.id)}" aria-label="${isFavorite(product.id) ? 'Remove from favorites' : 'Add to favorites'}">${isFavorite(product.id) ? '&#9829;' : '&#9825;'}</button></div><div class="product-body"><p class="product-category">${escapeHtml(product.category)}</p><h3 class="product-title" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</h3><div class="product-meta"><strong class="product-price">${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()}</strong><span class="product-location">⌖ ${escapeHtml(product.location)}</span></div><button class="contact-button" data-product-id="${escapeHtml(product.id)}">Contact seller via WhatsApp ↗</button></div></article>`).join('');
+  $('#show-more-products').hidden = true;
+  $('#product-grid').innerHTML = visibleProducts.map((product, index) => {
+    const isSold = product.status === 'sold' || product.sold;
+    return `<article class="product-card ${isSold ? 'is-sold' : ''}" style="animation-delay: ${index * 50}ms"><div class="product-image"><img src="${escapeHtml(product.image_url || product.image)}" alt="${escapeHtml(product.title)}" loading="lazy"><span class="condition-badge ${product.condition.includes('Repair') ? 'repair' : ''}">${escapeHtml(product.condition)}</span><span class="listing-status ${isSold ? 'sold' : ''}">${isSold ? 'Sold' : 'Active'}</span><button class="favorite-button ${isFavorite(product.id) ? 'is-favorite' : ''}" data-product-id="${escapeHtml(product.id)}" aria-label="${isFavorite(product.id) ? 'Remove from favorites' : 'Add to favorites'}">${isFavorite(product.id) ? '&#9829;' : '&#9825;'}</button></div><div class="product-body"><p class="product-category">${escapeHtml(product.category)}</p><h3 class="product-title" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</h3><div class="product-meta"><strong class="product-price">${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()}</strong><span class="product-location">⌖ ${escapeHtml(product.location)}</span></div><button class="contact-button" data-product-id="${escapeHtml(product.id)}">Contact seller via WhatsApp ↗</button></div></article>`;
+  }).join('');
   $$('.contact-button').forEach((button) => button.addEventListener('click', () => contactSeller(state.products.find((product) => String(product.id) === button.dataset.productId))));
   $$('.favorite-button').forEach((button) => button.addEventListener('click', () => toggleFavorite(button.dataset.productId)));
 }
 
 function contactSeller(product) {
   if (!product) return;
+  if (!state.authenticatedUser) return openLoginModal('login', '', 'Log in to contact a seller.');
   saveFavorite(product);
   renderFavoriteCount();
   const message = `Hello! I am interested in your listing: ${product.title} posted on Second-Hand Market.`;
@@ -88,6 +154,7 @@ function contactSeller(product) {
 }
 
 function toggleFavorite(productId) {
+  if (!state.authenticatedUser) return openLoginModal('login', '', 'Log in to save items.');
   const product = state.products.find((item) => String(item.id) === String(productId));
   if (!product) return;
   if (isFavorite(productId)) removeFavorite(productId);
@@ -99,30 +166,54 @@ function toggleFavorite(productId) {
 function openModal(content) { $('#modal-content').innerHTML = content; $('#modal-backdrop').hidden = false; document.body.style.overflow = 'hidden'; }
 function closeModal() { $('#modal-backdrop').hidden = true; document.body.style.overflow = ''; }
 
+function showToast(message) {
+  const toast = $('#toast-container');
+  toast.textContent = message;
+  toast.classList.add('is-visible');
+  window.clearTimeout(showToast.timeout);
+  showToast.timeout = window.setTimeout(() => toast.classList.remove('is-visible'), 4000);
+}
+
+function enterDashboard(role) {
+  state.currentMode = role;
+  const welcomeGate = $('#welcome-gate');
+  if (welcomeGate) welcomeGate.hidden = true;
+  const shell = $('#app-shell');
+  shell.hidden = false;
+  shell.classList.add('is-visible');
+  shell.classList.toggle('buyer-mode', role === 'buyer');
+  shell.classList.toggle('seller-mode', role === 'seller');
+  $('.bottom-nav').hidden = false;
+  document.body.classList.toggle('is-buyer-mode', role === 'buyer');
+  initializeMap();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+function continueAfterAuthentication() {
+  closeModal();
+  if (state.pendingSellerAccess) {
+    state.pendingSellerAccess = false;
+    enterDashboard('seller');
+  }
+  if (state.pendingPost) {
+    state.pendingPost = false;
+    openPostModal();
+  }
+}
+
+function startSellerJourney() {
+  if (state.authenticatedUser) return enterDashboard('seller');
+  state.pendingSellerAccess = true;
+  openSellerAccessModal();
+}
+
 function requireSellerAuth() {
-  if (state.authenticatedUser) return openPostModal();
+  if (state.authenticatedUser) {
+    enterDashboard('seller');
+    return openPostModal();
+  }
   state.pendingPost = true;
-  openLoginModal('login', '', 'Please sign in or create an account to post your item.');
-}
-
-function showMarketplace() {
-  $('#auth-gate').hidden = true;
-  $('#app-shell').classList.add('is-visible');
-}
-
-function enterBuyerFlow() {
-  state.journey = 'buyer';
-  $('#app-shell').classList.add('buyer-mode');
-  showMarketplace();
-  $('#market').scrollIntoView({ behavior: 'smooth' });
-}
-
-function enterSellerFlow() {
-  state.journey = 'seller';
-  $('#app-shell').classList.remove('buyer-mode');
-  showMarketplace();
-  if (state.authenticatedUser) return openPostModal();
-  state.pendingPost = true;
+  state.pendingSellerAccess = true;
   openSellerAccessModal();
 }
 
@@ -139,11 +230,7 @@ function renderSellerAccessMode(mode) {
     try {
       if (isSignup) await registerWithEmail($('#seller-name').value, $('#seller-access-email').value, $('#seller-access-password').value);
       else await signInWithEmail($('#seller-access-email').value, $('#seller-access-password').value);
-      closeModal();
-      if (state.pendingPost) {
-        state.pendingPost = false;
-        openPostModal();
-      }
+      continueAfterAuthentication();
     } catch (error) { alert(error.message); }
   });
 }
@@ -155,8 +242,27 @@ function openPostModal() {
 
 async function submitPost(event) {
   event.preventDefault();
+  const form = event.currentTarget;
+  const product = Object.fromEntries(new FormData(form));
+  const imageUrl = product.image.trim() || DEFAULT_PRODUCT_IMAGE;
+  const duplicate = state.products.some((existing) =>
+    existing.title.trim().toLowerCase() === product.title.trim().toLowerCase() &&
+    Number(existing.price) === Number(product.price) &&
+    String(existing.image_url || existing.image || DEFAULT_PRODUCT_IMAGE).trim() === imageUrl
+  );
+  form.querySelectorAll('.is-duplicate').forEach((field) => field.classList.remove('is-duplicate'));
+  form.querySelectorAll('.has-duplicate').forEach((field) => field.classList.remove('has-duplicate'));
+  if (duplicate) {
+    ['title', 'price', 'image'].forEach((name) => {
+      const field = form.elements.namedItem(name);
+      field.classList.add('is-duplicate');
+      field.closest('.form-field').classList.add('has-duplicate');
+    });
+    showToast('This item already exists in the marketplace.');
+    form.elements.namedItem('title').focus();
+    return;
+  }
   try {
-    const product = Object.fromEntries(new FormData(event.currentTarget));
     const createdProduct = await createProduct({ ...product, owner: currentUserId() });
     saveMyListing({ ...createdProduct, ownerId: currentUserId(), status: 'Active', postedAt: new Date().toISOString() });
     saveUserLocation(product.location);
@@ -166,7 +272,18 @@ async function submitPost(event) {
     await refreshCatalog();
     renderMyListings();
     $('#market').scrollIntoView({ behavior: 'smooth' });
-  } catch (error) { alert(error.message); }
+  } catch (error) {
+    if (error.message === 'This item already exists in the marketplace.') {
+      ['title', 'price', 'image'].forEach((name) => {
+        const field = form.elements.namedItem(name);
+        field.classList.add('is-duplicate');
+        field.closest('.form-field').classList.add('has-duplicate');
+      });
+      showToast(error.message);
+      return;
+    }
+    alert(error.message);
+  }
 }
 
 function openListingEditor(listingId) {
@@ -218,12 +335,23 @@ function openLoginModal(mode = 'login', provider = '', guardMessage = '') {
   const identifierLabel = provider === 'Facebook' ? 'Username or email' : 'Google email';
   const identifierType = provider === 'Facebook' ? 'text' : 'email';
   openModal(`<h2 id="modal-title">${title}</h2>${guardMessage ? `<p class="auth-guard-message">${guardMessage}</p>` : ''}<p class="modal-intro">${intro}</p><div class="login-options">${isProviderLogin ? '' : '<button class="google-button" id="google-login">G&nbsp;&nbsp; Continue with Google</button><button class="google-button" id="facebook-login">f&nbsp;&nbsp; Continue with Facebook</button><div class="divider">or continue with email</div>'}<form id="login-form">${isRegister ? '<div class="form-field"><label for="name">Full name</label><input id="name" required placeholder="Your name"></div>' : ''}<div class="form-field"><label for="email">${isProviderLogin ? identifierLabel : 'Email address'}</label><input id="email" type="${isProviderLogin ? identifierType : 'email'}" required placeholder="${isProviderLogin && provider === 'Facebook' ? 'username or email' : 'you@example.com'}"></div><div class="form-field" style="margin-top:14px"><label for="password">Password</label><input id="password" type="password" minlength="6" required placeholder="At least 6 characters"></div><button class="button button-dark form-submit" type="submit">${action} <span>↗</span></button></form></div>`);
-  $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); try { if (isRegister) await registerWithEmail($('#name').value, $('#email').value, $('#password').value); else if (isProviderLogin) await signInWithProviderCredentials(provider, $('#email').value, $('#password').value); else await signInWithEmail($('#email').value, $('#password').value); closeModal(); if (state.pendingPost) { state.pendingPost = false; openPostModal(); } } catch (error) { alert(error.message); } });
+  $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); try { if (isRegister) await registerWithEmail($('#name').value, $('#email').value, $('#password').value); else if (isProviderLogin) await signInWithProviderCredentials(provider, $('#email').value, $('#password').value); else await signInWithEmail($('#email').value, $('#password').value); continueAfterAuthentication(); } catch (error) { alert(error.message); } });
   if (!isProviderLogin) { $('#google-login').addEventListener('click', () => openLoginModal('login', 'Google')); $('#facebook-login').addEventListener('click', () => openLoginModal('login', 'Facebook')); }
 }
 
 async function runAuth(action) { try { await action(); closeModal(); if (state.pendingPost) { state.pendingPost = false; openPostModal(); } } catch (error) { alert(error.message); } }
-function setLoggedIn(user) { const name = user.displayName || user.email.split('@')[0]; saveUser(name); state.authenticatedUser = user; $('#listings-button').hidden = false; const initials = name.slice(0, 2).toUpperCase(); $('#auth-area').innerHTML = `<div class="profile-chip"><span>${initials}</span>${escapeHtml(name)}</div><button class="text-button" id="logout-button">Log out</button><button class="button button-dark" id="post-top-button">Post an item <span>↗</span></button>`; $('#post-top-button').addEventListener('click', requireSellerAuth); $('#logout-button').addEventListener('click', () => logOut()); renderMyListings(); }
+function setLoggedIn(user) {
+  const name = user.displayName || user.email?.split('@')[0] || 'Marketplace member';
+  saveUser(name);
+  state.authenticatedUser = user;
+  $('#app-shell').classList.add('is-authenticated');
+  const profileButton = $('#profile-button');
+  profileButton.textContent = name.slice(0, 1).toUpperCase();
+  profileButton.setAttribute('aria-label', `Profile for ${name}`);
+  profileButton.title = `Profile for ${name}`;
+  $('#profile-status').textContent = 'Account';
+  renderMyListings();
+}
 function syncFilterInputs() { $('#catalog-search').value = state.filters.query; $('#category-filter').value = state.filters.category; $('#location-filter').value = state.filters.location; $('#condition-filter').value = state.filters.condition; }
 function syncFilters() { state.filters = { query: $('#catalog-search').value, category: $('#category-filter').value, location: $('#location-filter').value, condition: $('#condition-filter').value }; saveFilters(state.filters); renderProducts(); }
 
@@ -237,32 +365,56 @@ export function initUI(products, observeAuthentication) {
     if (user) setLoggedIn(user);
     else {
       state.authenticatedUser = null;
-      $('#listings-button').hidden = true;
-      $('#auth-area').innerHTML = '<button class="text-button" id="login-button">Log in</button><button class="button button-dark" id="post-top-button">Post an item <span>↗</span></button>';
+      $('#app-shell').classList.remove('is-authenticated');
+      $('#profile-button').textContent = 'P';
+      $('#profile-button').setAttribute('aria-label', 'Log in');
+      $('#profile-button').title = 'Log in';
+      $('#profile-status').textContent = 'Log in';
       localStorage.removeItem('marketplaceUser');
-      $('#login-button').addEventListener('click', () => openLoginModal('login'));
-      $('#post-top-button').addEventListener('click', requireSellerAuth);
     }
   });
   $('#post-top-button').addEventListener('click', requireSellerAuth);
-  $('#login-button').addEventListener('click', () => openLoginModal('login'));
-  $('#buyer-entry').addEventListener('click', enterBuyerFlow);
-  $('#seller-entry').addEventListener('click', enterSellerFlow);
-  $('#browse-button').addEventListener('click', enterBuyerFlow);
-  $('#hero-post-button').addEventListener('click', enterSellerFlow);
-  if ($('#how-it-works')) $('#how-it-works').addEventListener('click', () => alert('Browse a listing, check its details, and meet the seller in a safe public location.'));
+  $('#seller-nav-button').addEventListener('click', startSellerJourney);
+  $('#header-login').addEventListener('click', () => openLoginModal('login'));
+  $('#header-signup').addEventListener('click', () => openLoginModal('register'));
+  $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 8; renderProducts(); });
+  $('#profile-button').addEventListener('click', () => {
+    if (!state.authenticatedUser) return openLoginModal('login');
+    if (state.currentMode === 'buyer') enterDashboard('seller');
+    renderMyListings();
+    openDrawer('listings-drawer');
+  });
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', (event) => { if (event.target.id === 'modal-backdrop') closeModal(); });
-  $('#favorites-button').addEventListener('click', () => { renderFavorites(); openDrawer('favorites-drawer'); });
-  $('#listings-button').addEventListener('click', () => { renderMyListings(); openDrawer('listings-drawer'); });
+  $('#bottom-favorites').addEventListener('click', () => { renderFavorites(); openDrawer('favorites-drawer'); });
+  $('#bottom-add').addEventListener('click', requireSellerAuth);
+  $('#bottom-profile').addEventListener('click', () => $('#profile-button').click());
+  $('#bottom-search').addEventListener('click', () => {
+    $('.site-header').classList.add('search-open');
+    $('#search-toggle').setAttribute('aria-expanded', 'true');
+    $('#header-search').focus();
+  });
+  $('#map-reset').addEventListener('click', () => marketplaceMap?.setView([18.539, -72.336], 12));
   $$('[data-close-drawer]').forEach((button) => button.addEventListener('click', () => closeDrawer(button.dataset.closeDrawer)));
   $('#header-search').addEventListener('input', (event) => { $('#catalog-search').value = event.target.value; syncFilters(); });
-  $('#catalog-search').addEventListener('input', syncFilters);
-  ['category-filter', 'location-filter', 'condition-filter'].forEach((id) => $(`#${id}`).addEventListener('change', syncFilters));
+  $('#search-toggle').addEventListener('click', () => {
+    const isOpen = $('.site-header').classList.toggle('search-open');
+    $('#search-toggle').setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) $('#header-search').focus();
+  });
+  $('#catalog-search').addEventListener('input', () => { state.visibleProductLimit = 8; syncFilters(); });
+  ['category-filter', 'location-filter', 'condition-filter'].forEach((id) => $(`#${id}`).addEventListener('change', () => { state.visibleProductLimit = 8; syncFilters(); }));
   $$('.category-pill').forEach((pill) => pill.addEventListener('click', () => { $$('.category-pill').forEach((item) => item.classList.remove('active')); pill.classList.add('active'); $('#category-filter').value = pill.dataset.category; syncFilters(); }));
   if (getAuthSetupMessage()) console.warn(getAuthSetupMessage());
   renderFavoriteCount();
   renderLiveFeed();
   state.products = mergeListingState(state.products);
+  initializeMap();
   renderProducts();
+  window.setInterval(() => {
+    if (!Object.values(state.filters).some(Boolean)) {
+      featuredProductIds = [];
+      renderProducts();
+    }
+  }, 18000);
 }
