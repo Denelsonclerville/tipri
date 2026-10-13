@@ -27,7 +27,7 @@
           <button class="profile-button" id="profile-button" aria-label="Log in" title="Log in">P</button>
           <span class="profile-status" id="profile-status">Log in</span>
         </div>
-        <button class="text-button seller-nav-button" id="seller-nav-button" type="button">Sell</button>
+        <button class="text-button seller-nav-button" id="seller-nav-button" type="button">New</button>
         <button class="icon-button" id="post-top-button" aria-label="Post an item" title="Post an item">＋</button>
       </header>
       <main id="top">
@@ -56,13 +56,12 @@
             <div class="empty-state" id="empty-state" hidden><strong>No listings found</strong><p>Try adjusting your search or filters.</p></div>
         </section>
       </main>
-      <nav class="bottom-nav" aria-label="Quick navigation">
-        <button id="bottom-search" aria-label="Search"><span>⌕</span><small>Search</small></button>
-        <button id="bottom-favorites" aria-label="Saved favorites"><span>♡</span><small>Saved</small></button>
-        <button id="bottom-add" aria-label="Add product"><span>＋</span><small>Add</small></button>
-        <button id="bottom-profile" aria-label="Profile"><span>◉</span><small>Profile</small></button>
-      </nav>
     </div>
+    <nav class="bottom-nav" aria-label="Dashboard navigation" hidden>
+      <button id="bottom-profile" type="button" aria-label="Profile"><span aria-hidden="true">◉</span><small>Profile</small></button>
+      <button id="bottom-activity" type="button" aria-label="My listings"><span aria-hidden="true">▣</span><small id="bottom-activity-label">My listings</small><b class="nav-count" id="listing-count-badge" hidden>0</b></button>
+      <button id="bottom-notifications" type="button" aria-label="Notifications"><span aria-hidden="true">🔔</span><small>Notifications</small><b class="nav-count" id="notification-count" hidden>0</b></button>
+    </nav>
     <footer id="contact">
       <a class="brand" href="/" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
       <p>Local reuse, made safer.</p>
@@ -76,6 +75,14 @@
     <aside class="drawer" id="listings-drawer" hidden aria-labelledby="listings-title">
       <div class="drawer-header"><div><p class="eyebrow">Seller dashboard</p><h2 id="listings-title">My <em>listings.</em></h2></div><button class="modal-close" data-close-drawer="listings-drawer" aria-label="Close listings">×</button></div>
       <div id="listings-content"></div>
+    </aside>
+    <aside class="drawer" id="account-drawer" hidden aria-labelledby="account-title">
+      <div class="drawer-header"><div><p class="eyebrow">Your account</p><h2 id="account-title">My <em>profile.</em></h2></div><button class="modal-close" data-close-drawer="account-drawer" aria-label="Close profile">×</button></div>
+      <div id="account-content"></div>
+    </aside>
+    <aside class="drawer" id="notifications-drawer" hidden aria-labelledby="notifications-title">
+      <div class="drawer-header"><div><p class="eyebrow">Marketplace updates</p><h2 id="notifications-title">Notifications.</h2></div><button class="modal-close" data-close-drawer="notifications-drawer" aria-label="Close notifications">×</button></div>
+      <div id="notifications-content"></div>
     </aside>
     <div class="modal-backdrop" id="modal-backdrop" hidden>
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button class="modal-close" id="modal-close" aria-label="Close dialog">×</button><div id="modal-content"></div></section>

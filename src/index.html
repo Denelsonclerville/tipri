@@ -13,8 +13,12 @@
     />
     <link rel="stylesheet" href="/css/styles.css" />
   </head>
-  <body>
+  <body class="welcome-page">
     <section class="auth-gate presentation-gate" id="welcome-gate" aria-labelledby="welcome-title">
+      <header class="welcome-header">
+        <a class="brand" href="/" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
+        <span class="welcome-location"><span aria-hidden="true"></span>Made for your neighborhood</span>
+      </header>
       <main class="gate-content presentation-content">
         <div class="gate-copy">
           <p class="eyebrow">A better way to pass things on</p>
@@ -26,6 +30,21 @@
           </div>
           <div class="gate-proof"><span class="proof-check" aria-hidden="true">✓</span><span><strong>Local by design</strong><small>Browse nearby listings and arrange a safe local meetup.</small></span></div>
         </div>
+        <aside class="welcome-art" aria-label="A preview of the Tipri local marketplace">
+          <div class="welcome-orbit welcome-orbit-one"></div>
+          <div class="welcome-orbit welcome-orbit-two"></div>
+          <div class="welcome-scene" aria-hidden="true">
+            <span class="welcome-scene-label">GOOD FINDS, CLOSE BY</span>
+            <div class="welcome-chair"><span></span><i></i><b></b></div>
+            <div class="welcome-scene-base"></div>
+            <span class="welcome-scene-caption">Give good things<br />another chapter.</span>
+          </div>
+          <div class="welcome-note">
+            <span class="welcome-note-icon" aria-hidden="true">↗</span>
+            <span><strong>Right around the corner</strong><small>Find it. Meet locally. Pass it on.</small></span>
+          </div>
+          <span class="welcome-sticker" aria-hidden="true">LOCAL<br />LOVE</span>
+        </aside>
       </main>
     </section>
     <footer id="contact">
@@ -40,6 +59,6 @@
         <div id="modal-content"></div>
       </section>
     </div>
-    <script type="module" src="/js/presentation.js"></script>
+    <script type="module" src="/js/main.js"></script>
   </body>
 </html>

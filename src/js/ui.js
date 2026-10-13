@@ -1,6 +1,6 @@
-import { createProduct, deleteProduct, fetchProducts, updateProduct } from './api.js';
+import { createProduct, deleteProduct, fetchProducts, fetchWeather, updateProduct } from './api.js';
 import { registerWithEmail, signInWithEmail, signInWithProviderCredentials, signInWithFacebook, signInWithGoogle, getAuthSetupMessage, logOut } from './auth.js';
-import { isFavorite, readFavorites, readFilters, readMyListings, readPreferences, removeFavorite, removeMyListing, saveFavorite, saveFilters, saveMyListing, savePreferences, saveUser, saveUserLocation, updateMyListing } from './storage.js';
+import { isFavorite, readCoordinates, readFavorites, readFilters, readMyListings, readPreferences, readUserLocation, removeFavorite, removeMyListing, saveCoordinates, saveFavorite, saveFilters, saveMyListing, savePreferences, saveUser, saveUserLocation, updateMyListing } from './storage.js';
 
 export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, pendingSellerAccess: false, currentMode: 'buyer', visibleProductLimit: 8 };
 const DEFAULT_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
@@ -93,7 +93,7 @@ function openDrawer(id) {
 
 function closeDrawer(id) {
   $(`#${id}`).hidden = true;
-  if ($('#favorites-drawer').hidden && $('#listings-drawer').hidden) document.body.style.overflow = '';
+  if ($('#favorites-drawer').hidden && $('#listings-drawer').hidden && $('#account-drawer').hidden && $('#notifications-drawer').hidden) document.body.style.overflow = '';
 }
 
 function renderFavorites() {
@@ -105,12 +105,34 @@ function renderFavorites() {
 
 function renderMyListings() {
   const listings = readMyListings().filter((listing) => listing.ownerId === currentUserId());
-  const account = `<div class="account-summary"><span>${escapeHtml(state.authenticatedUser?.email || state.authenticatedUser?.displayName || 'Signed in')}</span><button class="drawer-action" id="drawer-logout">Log out</button></div>`;
-  $('#listings-content').innerHTML = `${account}${listings.length ? `<div class="seller-list">${listings.map((listing) => `<article class="seller-item"><img src="${escapeHtml(listing.image_url || listing.image)}" alt="${escapeHtml(listing.title)}"><div><h3>${escapeHtml(listing.title)}</h3><p>${listing.currency === 'USD' ? '$' : listing.currency + ' '}${Number(listing.price).toLocaleString()} · <span class="seller-status ${listing.status === 'Sold' ? 'sold' : ''}">${escapeHtml(listing.status)}</span></p><div class="seller-actions"><button class="drawer-action" data-listing-edit="${escapeHtml(listing.id)}">Edit Price/Description</button><button class="drawer-action" data-listing-toggle="${escapeHtml(listing.id)}">Mark as ${listing.status === 'Sold' ? 'Active' : 'Sold'}</button><button class="drawer-action danger" data-listing-delete="${escapeHtml(listing.id)}">Delete Listing</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have not posted any listings yet.</p>'}`;
-  $('#drawer-logout').addEventListener('click', () => logOut());
+  const countBadge = $('#listing-count-badge');
+  if (countBadge) {
+    countBadge.textContent = String(listings.length);
+    countBadge.hidden = listings.length === 0;
+  }
+  $('#listings-content').innerHTML = listings.length ? `<div class="seller-list">${listings.map((listing) => `<article class="seller-item"><img src="${escapeHtml(listing.image_url || listing.image)}" alt="${escapeHtml(listing.title)}"><div><h3>${escapeHtml(listing.title)}</h3><p>${listing.currency === 'USD' ? '$' : listing.currency + ' '}${Number(listing.price).toLocaleString()} · <span class="seller-status ${listing.status === 'Sold' ? 'sold' : ''}">${escapeHtml(listing.status)}</span></p><div class="seller-actions"><button class="drawer-action" data-listing-edit="${escapeHtml(listing.id)}">Edit Price/Description</button><button class="drawer-action" data-listing-toggle="${escapeHtml(listing.id)}">Mark as ${listing.status === 'Sold' ? 'Active' : 'Sold'}</button><button class="drawer-action danger" data-listing-delete="${escapeHtml(listing.id)}">Delete Listing</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have not posted any listings yet.</p>';
   $$('[data-listing-edit]').forEach((button) => button.addEventListener('click', () => openListingEditor(button.dataset.listingEdit)));
   $$('[data-listing-toggle]').forEach((button) => button.addEventListener('click', () => toggleListingStatus(button.dataset.listingToggle)));
   $$('[data-listing-delete]').forEach((button) => button.addEventListener('click', () => deleteListing(button.dataset.listingDelete)));
+}
+
+function renderAccount() {
+  const user = state.authenticatedUser;
+  const name = user?.displayName || user?.email?.split('@')[0] || 'Marketplace member';
+  $('#account-content').innerHTML = `<div class="account-summary"><span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(user?.email || '')}</small></span><button class="drawer-action danger" id="account-logout" type="button">Log out</button></div>`;
+  $('#account-logout').addEventListener('click', () => logOut());
+}
+
+function renderNotifications() {
+  $('#notifications-content').innerHTML = '<p class="drawer-empty">No notifications yet. Buyer messages are not connected to the marketplace yet, so new contacts cannot be counted here for now.</p>';
+}
+
+function syncNavigationMode() {
+  const isSeller = state.currentMode === 'seller';
+  $('#bottom-activity-label').textContent = isSeller ? 'My listings' : 'Saved';
+  $('#bottom-activity').setAttribute('aria-label', isSeller ? 'My listings' : 'Saved items');
+  $('#bottom-activity').querySelector('span').textContent = isSeller ? '▣' : '♡';
+  $('#listing-count-badge').hidden = !isSeller || Number($('#listing-count-badge').textContent) === 0;
 }
 
 async function refreshCatalog() {
@@ -175,16 +197,26 @@ function showToast(message) {
 }
 
 function enterDashboard(role) {
+  if (role === 'seller' && !state.authenticatedUser) {
+    startSellerJourney();
+    return;
+  }
+
   state.currentMode = role;
   const welcomeGate = $('#welcome-gate');
+  if (!$('#app-shell')) {
+    window.location.assign(`/dashboard.html?mode=${role}`);
+    return;
+  }
   if (welcomeGate) welcomeGate.hidden = true;
   const shell = $('#app-shell');
   shell.hidden = false;
   shell.classList.add('is-visible');
   shell.classList.toggle('buyer-mode', role === 'buyer');
   shell.classList.toggle('seller-mode', role === 'seller');
-  $('.bottom-nav').hidden = false;
+  $('.bottom-nav').hidden = !state.authenticatedUser;
   document.body.classList.toggle('is-buyer-mode', role === 'buyer');
+  syncNavigationMode();
   initializeMap();
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -205,6 +237,38 @@ function startSellerJourney() {
   if (state.authenticatedUser) return enterDashboard('seller');
   state.pendingSellerAccess = true;
   openSellerAccessModal();
+}
+
+export function initWelcomeUI(observeAuthentication) {
+  let openSellerAccessOnAuth = new URLSearchParams(window.location.search).get('seller') === '1';
+  let resolveAuthReady;
+  let authReadyResolved = false;
+  const authReady = new Promise((resolve) => {
+    resolveAuthReady = resolve;
+  });
+  if (openSellerAccessOnAuth) window.history.replaceState({}, '', '/');
+
+  observeAuthentication((user) => {
+    state.authenticatedUser = user;
+    if (!authReadyResolved) {
+      authReadyResolved = true;
+      resolveAuthReady(user);
+    }
+    if (!openSellerAccessOnAuth) return;
+    openSellerAccessOnAuth = false;
+    if (user) enterDashboard('seller');
+    else startSellerJourney();
+  });
+
+  $('#buyer-btn').addEventListener('click', () => enterDashboard('buyer'));
+  $('#seller-btn').addEventListener('click', async () => {
+    if (await authReady) enterDashboard('seller');
+    else startSellerJourney();
+  });
+  $('#modal-close').addEventListener('click', closeModal);
+  $('#modal-backdrop').addEventListener('click', (event) => {
+    if (event.target === $('#modal-backdrop')) closeModal();
+  });
 }
 
 function requireSellerAuth() {
@@ -228,8 +292,10 @@ function renderSellerAccessMode(mode) {
   $('#seller-access-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     try {
-      if (isSignup) await registerWithEmail($('#seller-name').value, $('#seller-access-email').value, $('#seller-access-password').value);
-      else await signInWithEmail($('#seller-access-email').value, $('#seller-access-password').value);
+      const authenticatedUser = isSignup
+        ? await registerWithEmail($('#seller-name').value, $('#seller-access-email').value, $('#seller-access-password').value)
+        : await signInWithEmail($('#seller-access-email').value, $('#seller-access-password').value);
+      state.authenticatedUser = authenticatedUser.user || authenticatedUser;
       continueAfterAuthentication();
     } catch (error) { alert(error.message); }
   });
@@ -344,16 +410,123 @@ function setLoggedIn(user) {
   const name = user.displayName || user.email?.split('@')[0] || 'Marketplace member';
   saveUser(name);
   state.authenticatedUser = user;
+  document.body.classList.add('is-authenticated');
   $('#app-shell').classList.add('is-authenticated');
+  $('.bottom-nav').hidden = false;
+  syncNavigationMode();
   const profileButton = $('#profile-button');
   profileButton.textContent = name.slice(0, 1).toUpperCase();
   profileButton.setAttribute('aria-label', `Profile for ${name}`);
   profileButton.title = `Profile for ${name}`;
   $('#profile-status').textContent = 'Account';
+  const accountNavButton = $('#bottom-profile');
+  accountNavButton.querySelector('span').textContent = name.slice(0, 1).toUpperCase();
+  accountNavButton.querySelector('small').textContent = 'Account';
+  accountNavButton.setAttribute('aria-label', `Account for ${name}`);
+  renderAccount();
   renderMyListings();
 }
 function syncFilterInputs() { $('#catalog-search').value = state.filters.query; $('#category-filter').value = state.filters.category; $('#location-filter').value = state.filters.location; $('#condition-filter').value = state.filters.condition; }
 function syncFilters() { state.filters = { query: $('#catalog-search').value, category: $('#category-filter').value, location: $('#location-filter').value, condition: $('#condition-filter').value }; saveFilters(state.filters); renderProducts(); }
+
+function buildFallbackWeather() {
+  return {
+    temperature: '--',
+    condition: 'Forecast unavailable',
+    humidity: '--',
+    wind: '--',
+    high: '--',
+    low: '--',
+    location: 'Port-au-Prince',
+    forecast: ['Today', 'Tomorrow', 'Next day'].map((day) => ({
+      day,
+      condition: 'Forecast unavailable',
+      high: '--',
+      low: '--'
+    }))
+  };
+}
+
+async function requestWeatherLocation() {
+  return new Promise((resolve) => {
+    const savedLocation = readUserLocation();
+    const savedCoordinates = readCoordinates();
+    if (savedCoordinates) return resolve(`?lat=${savedCoordinates.latitude}&lon=${savedCoordinates.longitude}`);
+    if (!navigator.geolocation || !navigator.permissions) {
+      return resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : '');
+    }
+
+    navigator.permissions.query({ name: 'geolocation' }).then((permission) => {
+      if (permission.state !== 'granted') {
+        return resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : '');
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          saveCoordinates(position.coords.latitude, position.coords.longitude);
+          resolve(`?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+        },
+        () => resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : ''),
+        { enableHighAccuracy: false, timeout: 7000, maximumAge: 900000 }
+      );
+    }).catch(() => resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : ''));
+  });
+}
+
+function weatherIcon(condition = '') {
+  const value = String(condition).toLowerCase();
+  if (value.includes('unavailable')) return '–';
+  if (value.includes('rain')) return '☂';
+  if (value.includes('cloud') || value.includes('fog')) return '☁';
+  if (value.includes('storm')) return '⛈';
+  return '☀';
+}
+
+export async function loadWeather() {
+  const banners = [...document.querySelectorAll('#gate-weather, #meteo-banner')];
+  if (!banners.length) return;
+
+  const renderWeather = (weather) => {
+    const icon = weatherIcon(weather.condition);
+    const markup = `
+      <div class="meteo-main">
+        <span class="meteo-icon" aria-hidden="true">${icon}</span>
+        <div>
+          <p class="meteo-label">Local weather</p>
+          <h3>${escapeHtml(weather.temperature)}</h3>
+        </div>
+      </div>
+      <div class="meteo-summary">
+        <span>${escapeHtml(weather.location)}</span>
+        <strong>${escapeHtml(weather.condition)}</strong>
+      </div>
+      <div class="meteo-grid">
+        <span>Humidity <strong>${escapeHtml(weather.humidity ?? '--')}</strong></span>
+        <span>Wind <strong>${escapeHtml(weather.wind ?? '--')}</strong></span>
+        <span>High <strong>${escapeHtml(weather.high ?? '--')}</strong></span>
+        <span>Low <strong>${escapeHtml(weather.low ?? '--')}</strong></span>
+      </div>
+      <h4 class="forecast-heading">3-day forecast</h4>
+      <div class="forecast-list">${(weather.forecast || []).map((day) => `
+        <div class="forecast-day">
+          <strong>${escapeHtml(day.day)}</strong>
+          <span aria-hidden="true">${weatherIcon(day.condition)}</span>
+          <span class="forecast-condition">${escapeHtml(day.condition)}</span>
+          <span class="forecast-temperatures"><strong>${escapeHtml(day.high)}</strong><span>${escapeHtml(day.low)}</span></span>
+        </div>
+      `).join('')}</div>
+    `;
+    banners.forEach((banner) => { banner.innerHTML = markup; });
+  };
+
+  try {
+    const weather = await fetchWeather(await requestWeatherLocation());
+    const value = weather && typeof weather === 'object' ? weather : buildFallbackWeather();
+    renderWeather(value);
+  } catch {
+    renderWeather(buildFallbackWeather());
+  }
+}
 
 export function initUI(products, observeAuthentication) {
   state.products = products;
@@ -365,34 +538,44 @@ export function initUI(products, observeAuthentication) {
     if (user) setLoggedIn(user);
     else {
       state.authenticatedUser = null;
+      document.body.classList.remove('is-authenticated');
       $('#app-shell').classList.remove('is-authenticated');
+      $('.bottom-nav').hidden = true;
       $('#profile-button').textContent = 'P';
       $('#profile-button').setAttribute('aria-label', 'Log in');
       $('#profile-button').title = 'Log in';
       $('#profile-status').textContent = 'Log in';
+      const accountNavButton = $('#bottom-profile');
+      accountNavButton.querySelector('span').textContent = '◉';
+      accountNavButton.querySelector('small').textContent = 'Profile';
+      accountNavButton.setAttribute('aria-label', 'Profile');
       localStorage.removeItem('marketplaceUser');
     }
   });
   $('#post-top-button').addEventListener('click', requireSellerAuth);
-  $('#seller-nav-button').addEventListener('click', startSellerJourney);
+  $('#seller-nav-button').addEventListener('click', requireSellerAuth);
   $('#header-login').addEventListener('click', () => openLoginModal('login'));
   $('#header-signup').addEventListener('click', () => openLoginModal('register'));
   $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 8; renderProducts(); });
-  $('#profile-button').addEventListener('click', () => {
-    if (!state.authenticatedUser) return openLoginModal('login');
-    if (state.currentMode === 'buyer') enterDashboard('seller');
-    renderMyListings();
-    openDrawer('listings-drawer');
-  });
+  $('#profile-button').addEventListener('click', () => openLoginModal('login'));
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', (event) => { if (event.target.id === 'modal-backdrop') closeModal(); });
-  $('#bottom-favorites').addEventListener('click', () => { renderFavorites(); openDrawer('favorites-drawer'); });
-  $('#bottom-add').addEventListener('click', requireSellerAuth);
-  $('#bottom-profile').addEventListener('click', () => $('#profile-button').click());
-  $('#bottom-search').addEventListener('click', () => {
-    $('.site-header').classList.add('search-open');
-    $('#search-toggle').setAttribute('aria-expanded', 'true');
-    $('#header-search').focus();
+  $('#bottom-profile').addEventListener('click', () => {
+    renderAccount();
+    openDrawer('account-drawer');
+  });
+  $('#bottom-activity').addEventListener('click', () => {
+    if (state.currentMode === 'seller') {
+      renderMyListings();
+      openDrawer('listings-drawer');
+      return;
+    }
+    renderFavorites();
+    openDrawer('favorites-drawer');
+  });
+  $('#bottom-notifications').addEventListener('click', () => {
+    renderNotifications();
+    openDrawer('notifications-drawer');
   });
   $('#map-reset').addEventListener('click', () => marketplaceMap?.setView([18.539, -72.336], 12));
   $$('[data-close-drawer]').forEach((button) => button.addEventListener('click', () => closeDrawer(button.dataset.closeDrawer)));
@@ -409,6 +592,7 @@ export function initUI(products, observeAuthentication) {
   renderFavoriteCount();
   renderLiveFeed();
   state.products = mergeListingState(state.products);
+  syncNavigationMode();
   initializeMap();
   renderProducts();
   window.setInterval(() => {

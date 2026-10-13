@@ -33,15 +33,23 @@ body {
 
 body.is-buyer-mode #post-top-button,
 body.is-buyer-mode #hero-post-button,
-body.is-buyer-mode #bottom-add,
-body.is-buyer-mode .bottom-nav,
 body.is-buyer-mode #seller-nav-button,
 body.is-buyer-mode #profile-button,
 body.is-buyer-mode #profile-status {
   display: none;
 }
 
-body.is-buyer-mode .app-shell {
+body.is-authenticated .auth-area > .button,
+body.is-authenticated .auth-area > .profile-button,
+body.is-authenticated .auth-area > .profile-status {
+  display: none;
+}
+
+body.is-authenticated .app-shell {
+  padding-bottom: 112px;
+}
+
+body.is-buyer-mode:not(.is-authenticated) .app-shell {
   padding-bottom: 0;
 }
 
@@ -76,6 +84,92 @@ a {
 
 .app-shell.is-visible {
   display: block;
+}
+
+.bottom-nav {
+  display: flex;
+  position: fixed;
+  z-index: 40;
+  right: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  width: min(calc(100% - 32px), 560px);
+  margin: 0;
+  padding: 10px 12px;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  border: 1px solid #333;
+  border-radius: 14px;
+  background: #111;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  transform: translateX(50%);
+}
+
+.bottom-nav[hidden] {
+  display: none;
+}
+
+.bottom-nav button {
+  display: grid;
+  position: relative;
+  min-width: 84px;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px 12px 7px;
+  border-radius: 8px;
+  color: #c3c9c5;
+  background: transparent;
+}
+
+.bottom-nav button:hover,
+.bottom-nav button:focus-visible {
+  color: #fff;
+  background: #292e2b;
+}
+
+.bottom-nav button span {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.bottom-nav button small {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.bottom-nav .nav-count {
+  position: absolute;
+  top: 0;
+  right: 13px;
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 4px;
+  border: 2px solid #111;
+  border-radius: 999px;
+  color: #111;
+  background: #dcebdc;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.bottom-nav .nav-count[hidden] {
+  display: none;
+}
+
+@media (max-width: 380px) {
+  .bottom-nav {
+    gap: 2px;
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .bottom-nav button {
+    min-width: 72px;
+    padding-right: 6px;
+    padding-left: 6px;
+  }
 }
 
 .site-header {
@@ -1987,6 +2081,518 @@ footer p {
   }
   .art-card-small {
     right: 1%;
+  }
+}
+
+.welcome-page {
+  min-height: 100vh;
+  min-height: 100svh;
+  background: #f8faf7;
+}
+
+.welcome-page .presentation-gate {
+  min-height: calc(100vh - 70px);
+  min-height: calc(100svh - 70px);
+  padding: 0 clamp(24px, 7vw, 112px);
+  background:
+    radial-gradient(ellipse at 83% 18%, rgba(255, 255, 255, 0.82), transparent 36%),
+    linear-gradient(118deg, #f3f7e9 0%, #e1f0e5 53%, #cce8dc 100%);
+}
+
+.welcome-header {
+  width: min(100%, 1320px);
+  height: 78px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 3;
+  border-bottom: 1px solid rgba(53, 104, 78, 0.1);
+}
+
+.welcome-header .brand {
+  font-size: 20px;
+}
+
+.welcome-header .brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  font-size: 13px;
+}
+
+.welcome-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #60766b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.welcome-location span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4b9669;
+  box-shadow: 0 0 0 4px rgba(75, 150, 105, 0.13);
+}
+
+.welcome-page .presentation-content {
+  width: min(100%, 1320px);
+  max-width: none;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 38px 0 45px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  gap: clamp(50px, 8vw, 124px);
+  align-items: center;
+}
+
+.welcome-page .gate-copy {
+  max-width: 610px;
+}
+
+.welcome-page .gate-copy .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 23px;
+  letter-spacing: 1.8px;
+}
+
+.welcome-page .gate-copy .eyebrow::before {
+  width: 28px;
+  height: 1px;
+  background: var(--teal);
+  content: "";
+}
+
+.welcome-page .gate-copy h1 {
+  font-size: clamp(54px, 6.2vw, 88px);
+  line-height: 0.98;
+  letter-spacing: -6px;
+}
+
+.welcome-page .gate-copy h1 em {
+  color: #397b50;
+}
+
+.welcome-page .gate-description {
+  max-width: 450px;
+  margin: 25px 0 29px;
+  color: #5c7167;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.welcome-page .entry-actions {
+  gap: 13px;
+  margin-top: 0;
+}
+
+.welcome-page .entry-actions .button {
+  min-width: 184px;
+  min-height: 53px;
+  justify-content: space-between;
+  padding: 15px 19px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.welcome-page .entry-actions .button-dark {
+  background: #1d3028;
+}
+
+.welcome-page .entry-actions .button-bright {
+  border: 1px solid rgba(51, 111, 73, 0.16);
+  background: #f8fbf5;
+}
+
+.welcome-page .gate-proof {
+  margin-top: 34px;
+  gap: 13px;
+  color: #30453a;
+}
+
+.welcome-page .proof-check {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.welcome-page .gate-proof small {
+  color: #718279;
+  font-size: 11px;
+}
+
+.welcome-art {
+  min-height: 420px;
+  position: relative;
+  isolation: isolate;
+}
+
+.welcome-scene {
+  position: absolute;
+  inset: 23px 18px 27px 30px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 210px 210px 18px 18px;
+  background:
+    radial-gradient(ellipse at 54% 51%, rgba(253, 229, 180, 0.82), transparent 27%),
+    linear-gradient(152deg, #e1eed8 0%, #b8d8c7 52%, #8bb9a0 100%);
+  box-shadow: 0 28px 70px rgba(41, 92, 70, 0.16);
+}
+
+.welcome-scene::before,
+.welcome-scene::after {
+  position: absolute;
+  content: "";
+}
+
+.welcome-scene::before {
+  right: -9%;
+  bottom: -21%;
+  left: -10%;
+  height: 47%;
+  border-radius: 50% 50% 0 0;
+  background: linear-gradient(130deg, #568969, #78a681);
+}
+
+.welcome-scene::after {
+  top: 15%;
+  right: 17%;
+  width: 96px;
+  height: 96px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  box-shadow: 0 0 0 15px rgba(255, 255, 255, 0.07), 0 0 0 31px rgba(255, 255, 255, 0.05);
+}
+
+.welcome-scene-label {
+  position: absolute;
+  top: 28px;
+  left: 30px;
+  color: #476d57;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.7px;
+}
+
+.welcome-chair {
+  position: absolute;
+  z-index: 1;
+  top: 30%;
+  left: 31%;
+  width: 38%;
+  height: 41%;
+  filter: drop-shadow(9px 17px 9px rgba(40, 77, 55, 0.2));
+}
+
+.welcome-chair::before,
+.welcome-chair::after,
+.welcome-chair span,
+.welcome-chair i,
+.welcome-chair b {
+  position: absolute;
+  display: block;
+  content: "";
+  background: #d68149;
+}
+
+.welcome-chair::before {
+  top: 2%;
+  left: 7%;
+  width: 78%;
+  height: 48%;
+  border: 10px solid #d68149;
+  border-bottom: 0;
+  border-radius: 35px 35px 5px 5px;
+  background: linear-gradient(145deg, #f0b06d, #da8950);
+}
+
+.welcome-chair::after {
+  top: 49%;
+  left: 1%;
+  width: 96%;
+  height: 17%;
+  border-radius: 7px;
+  background: #e89b5c;
+}
+
+.welcome-chair span,
+.welcome-chair i {
+  top: 62%;
+  width: 8%;
+  height: 38%;
+  border-radius: 0 0 5px 5px;
+  background: #8e5b3f;
+}
+
+.welcome-chair span {
+  left: 14%;
+  transform: rotate(8deg);
+}
+
+.welcome-chair i {
+  right: 10%;
+  transform: rotate(-8deg);
+}
+
+.welcome-chair b {
+  top: 17%;
+  left: 43%;
+  width: 8%;
+  height: 35%;
+  border-radius: 5px;
+  background: #f3c482;
+}
+
+.welcome-scene-base {
+  position: absolute;
+  z-index: 1;
+  right: 13%;
+  bottom: 19%;
+  left: 15%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 7px 0 rgba(255, 255, 255, 0.13), 0 14px 0 rgba(255, 255, 255, 0.1);
+}
+
+.welcome-scene-caption {
+  position: absolute;
+  z-index: 1;
+  bottom: 29px;
+  left: 30px;
+  color: white;
+  font: 600 22px/1.15 "Space Grotesk", sans-serif;
+  letter-spacing: -0.7px;
+}
+
+.welcome-note {
+  position: absolute;
+  z-index: 2;
+  right: -16px;
+  bottom: 68px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 14px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 15px 38px rgba(38, 71, 53, 0.16);
+}
+
+.welcome-note-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  color: #397b50;
+  background: #e8f2e8;
+  font-size: 20px;
+}
+
+.welcome-note strong,
+.welcome-note small {
+  display: block;
+}
+
+.welcome-note strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.welcome-note small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.welcome-sticker {
+  position: absolute;
+  z-index: 2;
+  top: 11%;
+  left: 3%;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 50%;
+  color: #354b3d;
+  background: #f4cc75;
+  box-shadow: 0 9px 20px rgba(68, 86, 51, 0.15);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.6px;
+  text-align: center;
+  transform: rotate(-12deg);
+}
+
+.welcome-orbit {
+  position: absolute;
+  z-index: -1;
+  border: 1px solid rgba(61, 133, 94, 0.17);
+  border-radius: 50%;
+}
+
+.welcome-orbit-one {
+  inset: 0 2% 2% 0;
+  transform: rotate(-14deg);
+}
+
+.welcome-orbit-two {
+  inset: 7% -1% 8% 8%;
+  transform: rotate(16deg);
+}
+
+.welcome-page #contact {
+  height: 70px;
+  padding: 0 clamp(24px, 7vw, 112px);
+  background: #f8faf7;
+}
+
+.welcome-page #contact .brand {
+  font-size: 15px;
+}
+
+.welcome-page #contact .brand-mark {
+  width: 27px;
+  height: 27px;
+}
+
+@media (max-width: 900px) {
+  .welcome-page .presentation-content {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);
+    gap: 36px;
+  }
+
+  .welcome-page .gate-copy h1 {
+    font-size: clamp(48px, 6.5vw, 66px);
+    letter-spacing: -4px;
+  }
+
+  .welcome-art {
+    min-height: 370px;
+  }
+
+  .welcome-note {
+    right: -6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .welcome-page .presentation-gate {
+    min-height: auto;
+    padding: 0 24px;
+  }
+
+  .welcome-header {
+    height: 68px;
+  }
+
+  .welcome-page .presentation-content {
+    display: grid;
+    min-height: auto;
+    padding: 52px 0 30px;
+    grid-template-columns: 1fr;
+    gap: 25px;
+  }
+
+  .welcome-page .gate-copy h1 {
+    font-size: clamp(48px, 11vw, 68px);
+    letter-spacing: -4px;
+  }
+
+  .welcome-page .gate-description {
+    margin: 20px 0 24px;
+    font-size: 14px;
+  }
+
+  .welcome-page .gate-proof {
+    margin-top: 25px;
+  }
+
+  .welcome-art {
+    width: min(100%, 450px);
+    min-height: 330px;
+    margin: 0 auto;
+  }
+
+  .welcome-scene {
+    inset: 15px 18px 20px;
+  }
+
+  .welcome-note {
+    right: 0;
+    bottom: 45px;
+  }
+
+  .welcome-sticker {
+    top: 8%;
+    left: 1%;
+  }
+
+  .welcome-page #contact {
+    height: auto;
+    min-height: 70px;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    padding: 18px 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .welcome-location {
+    font-size: 9px;
+  }
+
+  .welcome-page .presentation-content {
+    padding-top: 42px;
+  }
+
+  .welcome-page .entry-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .welcome-page .entry-actions .button {
+    min-width: 0;
+    gap: 8px;
+    padding: 13px;
+    font-size: 11px;
+  }
+
+  .welcome-art {
+    min-height: 285px;
+  }
+
+  .welcome-scene {
+    inset: 13px 10px 17px;
+  }
+
+  .welcome-note {
+    right: -2px;
+    bottom: 34px;
+    padding: 11px;
+  }
+
+  .welcome-note-icon {
+    width: 33px;
+    height: 33px;
+  }
+
+  .welcome-scene-caption {
+    left: 21px;
+    bottom: 23px;
+    font-size: 18px;
   }
   .market-section {
     padding: 20px 20px 48px;

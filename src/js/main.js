@@ -1,9 +1,13 @@
 import { fetchProducts } from './api.js';
 import { observeAuth } from './auth.js';
-import { loadWeather } from './weather.js';
-import { initUI, state } from './ui.js';
+import { initUI, initWelcomeUI, loadWeather, state } from './ui.js';
 
 async function startApplication() {
+  if (document.querySelector('#welcome-gate')) {
+    initWelcomeUI(observeAuth);
+    return;
+  }
+
   const requestedMode = new URLSearchParams(window.location.search).get('mode');
   state.currentMode = requestedMode === 'seller' ? 'seller' : 'buyer';
   document.body.classList.toggle('is-buyer-mode', state.currentMode === 'buyer');
