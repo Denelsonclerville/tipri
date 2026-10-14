@@ -4,61 +4,149 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A trusted local marketplace for pre-owned goods." />
-    <title>Tipri</title>
+    <title>Tipri | Local Marketplace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="./css/styles.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   </head>
   <body class="welcome-page">
-    <section class="auth-gate presentation-gate" id="welcome-gate" aria-labelledby="welcome-title">
-      <header class="welcome-header">
-        <a class="brand" href="/" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
-        <span class="welcome-location"><span aria-hidden="true"></span>Made for your neighborhood</span>
-      </header>
-      <main class="gate-content presentation-content">
-        <div class="gate-copy">
-          <p class="eyebrow">A better way to pass things on</p>
-          <h1 id="welcome-title">Local finds.<br><em>Shared safely.</em></h1>
-          <p class="gate-description">Tipri brings neighbors together to buy and sell pre-loved things nearby. Keep useful items in circulation, meet locally, and build a more connected community.</p>
+    <section class="presentation-gate" id="welcome-gate" aria-labelledby="welcome-title">
+      <main class="presentation-main">
+        <a class="presentation-brand" href="./index.html" aria-label="Tipri home">
+          <span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span>
+        </a>
+        <section class="presentation-intro">
+          <p class="eyebrow">Made for your neighborhood</p>
+          <h1 id="welcome-title">Good things find <em>new homes.</em></h1>
+          <p>Tipri helps neighbors buy and sell pre-loved items nearby. Give useful things another chapter, find what you need, and keep local reuse moving.</p>
           <div class="entry-actions">
             <button class="button button-dark" id="buyer-btn" type="button">I want to Buy <span aria-hidden="true">↗</span></button>
             <button class="button button-bright" id="seller-btn" type="button">I want to Sell <span aria-hidden="true">↗</span></button>
           </div>
-          <div class="gate-proof"><span class="proof-check" aria-hidden="true">✓</span><span><strong>Local by design</strong><small>Browse nearby listings and arrange a safe local meetup.</small></span></div>
-        </div>
-        <aside class="welcome-art" aria-label="A preview of the Tipri local marketplace">
-          <div class="welcome-orbit welcome-orbit-one"></div>
-          <div class="welcome-orbit welcome-orbit-two"></div>
-          <div class="welcome-scene" aria-hidden="true">
-            <span class="welcome-scene-label">GOOD FINDS, CLOSE BY</span>
-            <div class="welcome-chair"><span></span><i></i><b></b></div>
-            <div class="welcome-scene-base"></div>
-            <span class="welcome-scene-caption">Give good things<br />another chapter.</span>
-          </div>
-          <div class="welcome-note">
-            <span class="welcome-note-icon" aria-hidden="true">↗</span>
-            <span><strong>Right around the corner</strong><small>Find it. Meet locally. Pass it on.</small></span>
-          </div>
-          <span class="welcome-sticker" aria-hidden="true">LOCAL<br />LOVE</span>
-        </aside>
+        </section>
+        <section class="purpose-cards" aria-label="What you can do with Tipri">
+          <article class="purpose-card purpose-card-copy">
+            <span class="purpose-number">01 / FIND NEARBY</span>
+            <h2>Shop your community.</h2>
+            <p>Explore useful pre-loved finds from people around you and arrange a local meetup that works for both of you.</p>
+            <span class="purpose-icon" aria-hidden="true">⌕</span>
+          </article>
+          <article class="purpose-card purpose-card-image">
+            <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1200&q=85" alt="A comfortable living room furnished with a second-hand sofa and table" />
+            <div class="purpose-image-caption">
+              <span class="purpose-number">02 / PASS IT ON</span>
+              <h2>Give good things another chapter.</h2>
+              <p>Sell items you no longer need and help them find a new home close by.</p>
+            </div>
+          </article>
+        </section>
       </main>
+      <footer class="presentation-footer">
+        <a class="brand" href="./index.html" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
+        <span>Local reuse, made safer.</span>
+        <nav class="footer-links" aria-label="Legal links"><a href="./terms.html">Terms</a><a href="./privacy.html">Privacy</a></nav>
+        <span>© 2026 Tipri</span>
+      </footer>
     </section>
-    <footer id="contact">
-      <a class="brand" href="/" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
-      <p>Local reuse, made safer.</p>
-      <nav class="footer-links" aria-label="Legal links"><a href="/terms.html">Terms</a><a href="/privacy.html">Privacy</a></nav>
-      <span>© 2026 Tipri</span>
-    </footer>
+
+    <div id="dashboard-view" class="hidden" hidden>
+      <div class="page-shell app-shell" id="app-shell">
+        <header class="site-header">
+          <a class="brand" href="./index.html" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
+          <div class="auth-area" id="auth-area">
+            <button class="button button-bright" id="header-login" type="button">Log In</button>
+            <button class="button button-dark" id="header-signup" type="button">Sign Up</button>
+            <button class="profile-button" id="profile-button" aria-label="Log in" title="Log in" hidden>P</button>
+            <span class="profile-status" id="profile-status" hidden>Log in</span>
+          </div>
+          <button class="text-button seller-nav-button" id="seller-nav-button" type="button" hidden>New</button>
+          <button class="icon-button" id="post-top-button" aria-label="Post an item" title="Post an item" hidden>＋</button>
+        </header>
+        <main id="top">
+          <section class="market-section discovery-tools" aria-label="Filter nearby listings">
+            <div class="filter-bar">
+              <select id="category-filter" aria-label="Filter by category">
+                <option value="">All categories</option><option>Vehicles &amp; Motorcycles</option><option>Generators &amp; Energy Systems</option><option>Heavy Home Appliances</option><option>Electronics</option><option>Furniture</option><option>Appliances</option><option>Solar &amp; Tech</option><option>Clothing</option>
+              </select>
+              <input id="location-filter" type="search" list="location-options" aria-label="Search location" placeholder="Any location" />
+              <datalist id="location-options">
+                <option value="Pétion-Ville"></option><option value="Delmas"></option><option value="Tabarre"></option><option value="Turgeau"></option><option value="Kenscoff"></option><option value="Carrefour"></option>
+              </datalist>
+              <select id="condition-filter" aria-label="Filter by condition">
+                <option value="">Any condition</option><option>Like New</option><option>Good Condition</option><option>Needs Minor Repair</option>
+              </select>
+              <label class="visually-hidden" for="catalog-search">Search listings</label>
+              <input id="catalog-search" class="catalog-search" type="search" placeholder="Search items" />
+            </div>
+          </section>
+          <section class="market-layout" id="market">
+            <section class="map-panel" id="map-panel" aria-labelledby="map-title">
+              <div class="section-heading map-heading">
+                <div><p class="eyebrow">Meet nearby</p><h1 id="map-title">Local <em>meetup map</em></h1></div>
+                <button class="text-button" id="map-reset" type="button">Reset map</button>
+              </div>
+              <div id="map-view" class="map-view" role="application" aria-label="Map of nearby meetup locations"></div>
+              <div class="map-legend"><span class="map-dot"></span> Listings and community pickup points</div>
+            </section>
+            <section class="weather-panel meteo-banner" id="meteo-banner" aria-label="Local weather and three-day forecast" aria-live="polite">
+              <p class="weather-loading">Loading local forecast...</p>
+            </section>
+          </section>
+          <section class="market-section" aria-labelledby="market-title">
+            <div class="section-heading">
+              <div><p class="eyebrow">Simple state</p><h2 id="market-title">Nearby <em>items</em></h2></div>
+              <span class="listing-count" id="listing-count">06 listings</span>
+            </div>
+            <div class="product-grid" id="product-grid"></div>
+            <button class="button button-bright show-more-button" id="show-more-products" type="button" hidden>Show more listings</button>
+            <div class="empty-state" id="empty-state" hidden><strong>No listings found</strong><p>Try adjusting your search or filters.</p></div>
+          </section>
+        </main>
+        <nav class="bottom-nav" aria-label="Account menu" hidden>
+          <button id="bottom-profile" type="button" aria-label="Profile"><span aria-hidden="true">◉</span><small>Profile</small></button>
+          <button id="bottom-activity" type="button" aria-label="Favorites"><span aria-hidden="true">♡</span><small id="bottom-activity-label">Favorites</small><b class="nav-count" id="listing-count-badge" hidden>0</b></button>
+          <button id="bottom-new" type="button" aria-label="New listing" hidden><span aria-hidden="true">＋</span><small>New</small></button>
+          <button id="bottom-notifications" type="button" aria-label="Notifications"><span aria-hidden="true">♧</span><small>Updates</small><b class="nav-count" id="notification-count" hidden>0</b></button>
+        </nav>
+        <footer id="contact">
+          <a class="brand" href="./index.html" aria-label="Tipri home"><span class="brand-mark">T</span><span>Tipri<span class="brand-accent">.</span></span></a>
+          <p>Local reuse, made safer.</p>
+          <nav class="footer-links" aria-label="Legal links"><a href="./terms.html">Terms</a><a href="./privacy.html">Privacy</a></nav>
+          <span id="country-info" aria-live="polite">Haiti · HTG</span>
+          <span>© 2026 Tipri</span>
+        </footer>
+        <aside class="drawer" id="favorites-drawer" hidden aria-labelledby="favorites-title">
+          <div class="drawer-header"><div><p class="eyebrow">Saved for later</p><h2 id="favorites-title">Your <em>favorites.</em></h2></div><button class="modal-close" data-close-drawer="favorites-drawer" aria-label="Close favorites">×</button></div>
+          <div id="favorites-content"></div>
+        </aside>
+        <aside class="drawer" id="listings-drawer" hidden aria-labelledby="listings-title">
+          <div class="drawer-header"><div><p class="eyebrow">Seller dashboard</p><h2 id="listings-title">My <em>listings.</em></h2></div><button class="modal-close" data-close-drawer="listings-drawer" aria-label="Close listings">×</button></div>
+          <div id="listings-content"></div>
+        </aside>
+        <aside class="drawer" id="account-drawer" hidden aria-labelledby="account-title">
+          <div class="drawer-header"><div><p class="eyebrow">Your account</p><h2 id="account-title">My <em>profile.</em></h2></div><button class="modal-close" data-close-drawer="account-drawer" aria-label="Close profile">×</button></div>
+          <div id="account-content"></div>
+        </aside>
+        <aside class="drawer" id="notifications-drawer" hidden aria-labelledby="notifications-title">
+          <div class="drawer-header"><div><p class="eyebrow">Marketplace updates</p><h2 id="notifications-title">Notifications.</h2></div><button class="modal-close" data-close-drawer="notifications-drawer" aria-label="Close notifications">×</button></div>
+          <div id="notifications-content"></div>
+        </aside>
+        <div class="toast-container" id="toast-container" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+
     <div class="modal-backdrop" id="modal-backdrop" hidden>
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <button class="modal-close" id="modal-close" aria-label="Close dialog">×</button>
         <div id="modal-content"></div>
       </section>
     </div>
-    <script type="module" src="/js/main.js"></script>
+    <script type="module" src="./js/main.js"></script>
   </body>
 </html>

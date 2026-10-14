@@ -1,14 +1,18 @@
-import { createProduct, deleteProduct, fetchProducts, fetchWeather, updateProduct } from './api.js';
+import { createProduct, deleteProduct, fetchProducts, fetchWeather, geocodeLocation, updateProduct } from './api.js';
 import { registerWithEmail, signInWithEmail, signInWithProviderCredentials, signInWithFacebook, signInWithGoogle, getAuthSetupMessage, logOut } from './auth.js';
 import { isFavorite, readCoordinates, readFavorites, readFilters, readMyListings, readPreferences, readUserLocation, removeFavorite, removeMyListing, saveCoordinates, saveFavorite, saveFilters, saveMyListing, savePreferences, saveUser, saveUserLocation, updateMyListing } from './storage.js';
 
-export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, pendingSellerAccess: false, currentMode: 'buyer', visibleProductLimit: 8 };
+export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, pendingSellerAccess: false, currentMode: 'buyer', visibleProductLimit: 4 };
 const DEFAULT_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 let marketplaceMap = null;
 let listingMarkers = [];
 let featuredProductIds = [];
+let modalReturnFocus = null;
+let locationLookupTimer = 0;
+let locationLookupSequence = 0;
+const DASHBOARD_ROLE_KEY = 'tipri_dashboard_role';
 
 export function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character])); }
 
@@ -129,10 +133,25 @@ function renderNotifications() {
 
 function syncNavigationMode() {
   const isSeller = state.currentMode === 'seller';
-  $('#bottom-activity-label').textContent = isSeller ? 'My listings' : 'Saved';
-  $('#bottom-activity').setAttribute('aria-label', isSeller ? 'My listings' : 'Saved items');
+  $('#bottom-activity-label').textContent = isSeller ? 'My listings' : 'Favorites';
+  $('#bottom-activity').setAttribute('aria-label', isSeller ? 'My listings' : 'Favorites');
   $('#bottom-activity').querySelector('span').textContent = isSeller ? '▣' : '♡';
   $('#listing-count-badge').hidden = !isSeller || Number($('#listing-count-badge').textContent) === 0;
+}
+
+function syncRoleControls() {
+  const isAuthenticated = Boolean(state.authenticatedUser);
+  const isSeller = state.currentMode === 'seller' && Boolean(state.authenticatedUser);
+  const shell = $('#app-shell');
+  shell.classList.toggle('buyer-mode', !isSeller);
+  shell.classList.toggle('seller-mode', isSeller);
+  $('#header-login').hidden = isAuthenticated;
+  $('#header-signup').hidden = isAuthenticated;
+  $('#profile-button').hidden = !isAuthenticated;
+  $('#profile-status').hidden = !isAuthenticated;
+  $('#post-top-button').hidden = !isSeller;
+  $('#seller-nav-button').hidden = !isSeller;
+  $('.bottom-nav').hidden = !isAuthenticated;
 }
 
 async function refreshCatalog() {
@@ -146,18 +165,18 @@ export function renderProducts() {
   const { query, category, location, condition } = state.filters;
   const products = state.products.filter((product) => {
     const text = `${product.title} ${product.description} ${product.category} ${product.location}`.toLowerCase();
-    return (!query || text.includes(query.toLowerCase())) && (!category || product.category === category) && (!location || product.location === location) && (!condition || product.condition === condition);
+    return (!query || text.includes(query.toLowerCase())) && (!category || product.category === category) && (!location || String(product.location || '').toLowerCase().includes(location.toLowerCase())) && (!condition || product.condition === condition);
   });
   const hasFilters = Boolean(query || category || location || condition);
   if (!hasFilters && !featuredProductIds.some((id) => products.some((product) => String(product.id) === id))) {
-    featuredProductIds = randomProducts(products, 8).map((product) => String(product.id));
+    featuredProductIds = randomProducts(products, products.length).map((product) => String(product.id));
   }
   const visibleProducts = hasFilters
     ? products
-    : featuredProductIds.map((id) => products.find((product) => String(product.id) === id)).filter(Boolean);
+    : featuredProductIds.slice(0, state.visibleProductLimit).map((id) => products.find((product) => String(product.id) === id)).filter(Boolean);
   $('#listing-count').textContent = `${String(products.length).padStart(2, '0')} listing${products.length === 1 ? '' : 's'}`;
   $('#empty-state').hidden = products.length > 0;
-  $('#show-more-products').hidden = true;
+  $('#show-more-products').hidden = hasFilters || visibleProducts.length >= products.length;
   $('#product-grid').innerHTML = visibleProducts.map((product, index) => {
     const isSold = product.status === 'sold' || product.sold;
     return `<article class="product-card ${isSold ? 'is-sold' : ''}" style="animation-delay: ${index * 50}ms"><div class="product-image"><img src="${escapeHtml(product.image_url || product.image)}" alt="${escapeHtml(product.title)}" loading="lazy"><span class="condition-badge ${product.condition.includes('Repair') ? 'repair' : ''}">${escapeHtml(product.condition)}</span><span class="listing-status ${isSold ? 'sold' : ''}">${isSold ? 'Sold' : 'Active'}</span><button class="favorite-button ${isFavorite(product.id) ? 'is-favorite' : ''}" data-product-id="${escapeHtml(product.id)}" aria-label="${isFavorite(product.id) ? 'Remove from favorites' : 'Add to favorites'}">${isFavorite(product.id) ? '&#9829;' : '&#9825;'}</button></div><div class="product-body"><p class="product-category">${escapeHtml(product.category)}</p><h3 class="product-title" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</h3><div class="product-meta"><strong class="product-price">${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()}</strong><span class="product-location">⌖ ${escapeHtml(product.location)}</span></div><button class="contact-button" data-product-id="${escapeHtml(product.id)}">Contact seller via WhatsApp ↗</button></div></article>`;
@@ -168,7 +187,7 @@ export function renderProducts() {
 
 function contactSeller(product) {
   if (!product) return;
-  if (!state.authenticatedUser) return openLoginModal('login', '', 'Log in to contact a seller.');
+  if (!state.authenticatedUser) return openLoginModal('login');
   saveFavorite(product);
   renderFavoriteCount();
   const message = `Hello! I am interested in your listing: ${product.title} posted on Second-Hand Market.`;
@@ -176,7 +195,7 @@ function contactSeller(product) {
 }
 
 function toggleFavorite(productId) {
-  if (!state.authenticatedUser) return openLoginModal('login', '', 'Log in to save items.');
+  if (!state.authenticatedUser) return openLoginModal('login');
   const product = state.products.find((item) => String(item.id) === String(productId));
   if (!product) return;
   if (isFavorite(productId)) removeFavorite(productId);
@@ -185,8 +204,19 @@ function toggleFavorite(productId) {
   renderProducts();
 }
 
-function openModal(content) { $('#modal-content').innerHTML = content; $('#modal-backdrop').hidden = false; document.body.style.overflow = 'hidden'; }
-function closeModal() { $('#modal-backdrop').hidden = true; document.body.style.overflow = ''; }
+function openModal(content) {
+  modalReturnFocus = document.activeElement;
+  $('#modal-content').innerHTML = content;
+  $('#modal-backdrop').hidden = false;
+  document.body.style.overflow = 'hidden';
+  window.requestAnimationFrame(() => $('#modal-content input')?.focus());
+}
+function closeModal() {
+  $('#modal-backdrop').hidden = true;
+  document.body.style.overflow = '';
+  if (modalReturnFocus instanceof HTMLElement) modalReturnFocus.focus();
+  modalReturnFocus = null;
+}
 
 function showToast(message) {
   const toast = $('#toast-container');
@@ -196,26 +226,25 @@ function showToast(message) {
   showToast.timeout = window.setTimeout(() => toast.classList.remove('is-visible'), 4000);
 }
 
-function enterDashboard(role) {
+export function enterDashboard(role) {
   if (role === 'seller' && !state.authenticatedUser) {
     startSellerJourney();
     return;
   }
 
   state.currentMode = role;
+  localStorage.setItem(DASHBOARD_ROLE_KEY, role);
   const welcomeGate = $('#welcome-gate');
-  if (!$('#app-shell')) {
-    window.location.assign(`/dashboard.html?mode=${role}`);
-    return;
-  }
   if (welcomeGate) welcomeGate.hidden = true;
+  document.body.classList.remove('welcome-page');
+  const dashboardView = $('#dashboard-view');
+  dashboardView.hidden = false;
+  dashboardView.classList.remove('hidden');
   const shell = $('#app-shell');
   shell.hidden = false;
   shell.classList.add('is-visible');
-  shell.classList.toggle('buyer-mode', role === 'buyer');
-  shell.classList.toggle('seller-mode', role === 'seller');
-  $('.bottom-nav').hidden = !state.authenticatedUser;
   document.body.classList.toggle('is-buyer-mode', role === 'buyer');
+  syncRoleControls();
   syncNavigationMode();
   initializeMap();
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -234,36 +263,24 @@ function continueAfterAuthentication() {
 }
 
 function startSellerJourney() {
-  if (state.authenticatedUser) return enterDashboard('seller');
+  if (state.authenticatedUser && state.currentMode === 'seller') return enterDashboard('seller');
   state.pendingSellerAccess = true;
   openSellerAccessModal();
 }
 
 export function initWelcomeUI(observeAuthentication) {
-  let openSellerAccessOnAuth = new URLSearchParams(window.location.search).get('seller') === '1';
-  let resolveAuthReady;
-  let authReadyResolved = false;
-  const authReady = new Promise((resolve) => {
-    resolveAuthReady = resolve;
-  });
-  if (openSellerAccessOnAuth) window.history.replaceState({}, '', '/');
-
   observeAuthentication((user) => {
     state.authenticatedUser = user;
-    if (!authReadyResolved) {
-      authReadyResolved = true;
-      resolveAuthReady(user);
-    }
-    if (!openSellerAccessOnAuth) return;
-    openSellerAccessOnAuth = false;
-    if (user) enterDashboard('seller');
-    else startSellerJourney();
+    state.currentMode = user && localStorage.getItem(DASHBOARD_ROLE_KEY) === 'seller' ? 'seller' : 'buyer';
   });
 
   $('#buyer-btn').addEventListener('click', () => enterDashboard('buyer'));
-  $('#seller-btn').addEventListener('click', async () => {
-    if (await authReady) enterDashboard('seller');
-    else startSellerJourney();
+  $('#seller-btn').addEventListener('click', () => {
+    if (state.authenticatedUser && localStorage.getItem(DASHBOARD_ROLE_KEY) === 'seller') {
+      enterDashboard('seller');
+      return;
+    }
+    startSellerJourney();
   });
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', (event) => {
@@ -272,7 +289,7 @@ export function initWelcomeUI(observeAuthentication) {
 }
 
 function requireSellerAuth() {
-  if (state.authenticatedUser) {
+  if (state.authenticatedUser && state.currentMode === 'seller') {
     enterDashboard('seller');
     return openPostModal();
   }
@@ -287,18 +304,34 @@ function openSellerAccessModal() {
 
 function renderSellerAccessMode(mode) {
   const isSignup = mode === 'signup';
-  openModal(`<h2 id="modal-title">Seller <em>access.</em></h2><p class="auth-guard-message">You should log in or sign up first to access your seller space.</p><p class="modal-intro">${isSignup ? 'Create your seller account to start posting products.' : 'Log in to access your seller space and post products.'}</p><form id="seller-access-form">${isSignup ? '<div class="form-field"><label for="seller-name">Full name</label><input id="seller-name" required placeholder="Your name"></div>' : ''}<div class="form-field"><label for="seller-access-email">Email address</label><input id="seller-access-email" type="email" required placeholder="you@example.com"></div><div class="form-field"><label for="seller-access-password">Password</label><input id="seller-access-password" type="password" minlength="6" required placeholder="At least 6 characters"></div><button class="button button-dark form-submit" type="submit">${isSignup ? 'Sign up' : 'Log in'} <span>↗</span></button></form><div class="seller-switch">${isSignup ? 'Already have an account?' : 'New seller?'} <button class="inline-link" id="seller-switch-button" type="button">${isSignup ? 'Log in' : 'Sign up'}</button></div>`);
+  openModal(`<div class="seller-access-content">
+    <form id="seller-access-form" novalidate>
+      ${isSignup ? '<div class="form-field"><label for="seller-name">Full name</label><input id="seller-name" autocomplete="name" required placeholder="e.g. Marie Jean"></div>' : ''}
+      <div class="form-field"><label for="seller-access-email">Email address</label><input id="seller-access-email" type="email" autocomplete="email" required placeholder="you@example.com"></div>
+      <div class="form-field"><label for="seller-access-password">Password</label><input id="seller-access-password" type="password" autocomplete="${isSignup ? 'new-password' : 'current-password'}" minlength="6" required placeholder="${isSignup ? 'At least 6 characters' : 'Your password'}"></div>
+      <p class="seller-access-error" id="seller-access-error" role="alert" hidden></p>
+      <button class="button button-dark form-submit" type="submit">${isSignup ? 'Create seller account' : 'Log in to sell'} <span aria-hidden="true">↗</span></button>
+    </form>
+    <p class="seller-switch">${isSignup ? 'Already have an account?' : 'New to Tipri?'} <button class="inline-link" id="seller-switch-button" type="button">${isSignup ? 'Log in' : 'Create an account'}</button></p>
+  </div>`);
   $('#seller-switch-button').addEventListener('click', () => renderSellerAccessMode(isSignup ? 'login' : 'signup'));
   $('#seller-access-form').addEventListener('submit', async (event) => {
     event.preventDefault();
+    const form = event.currentTarget;
+    const errorMessage = $('#seller-access-error');
+    if (!form.reportValidity()) return;
     try {
       const authenticatedUser = isSignup
         ? await registerWithEmail($('#seller-name').value, $('#seller-access-email').value, $('#seller-access-password').value)
         : await signInWithEmail($('#seller-access-email').value, $('#seller-access-password').value);
       state.authenticatedUser = authenticatedUser.user || authenticatedUser;
       continueAfterAuthentication();
-    } catch (error) { alert(error.message); }
+    } catch (error) {
+      errorMessage.textContent = error.message;
+      errorMessage.hidden = false;
+    }
   });
+  window.requestAnimationFrame(() => $('#seller-access-email')?.focus());
 }
 
 function openPostModal() {
@@ -330,12 +363,16 @@ async function submitPost(event) {
   }
   try {
     const createdProduct = await createProduct({ ...product, owner: currentUserId() });
-    saveMyListing({ ...createdProduct, ownerId: currentUserId(), status: 'Active', postedAt: new Date().toISOString() });
+    const listing = { ...createdProduct, ownerId: currentUserId(), status: 'Active', postedAt: createdProduct.postedAt };
+    saveMyListing(listing);
     saveUserLocation(product.location);
     closeModal();
     state.filters = { query: '', category: '', location: '', condition: '' };
     syncFilterInputs();
-    await refreshCatalog();
+    state.products = [createdProduct, ...state.products.filter((item) => String(item.id) !== String(createdProduct.id))];
+    renderLiveFeed();
+    initializeMap();
+    renderProducts();
     renderMyListings();
     $('#market').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
@@ -392,15 +429,13 @@ async function deleteListing(listingId) {
   } catch (error) { alert(error.message); }
 }
 
-function openLoginModal(mode = 'login', provider = '', guardMessage = '') {
+function openLoginModal(mode = 'login', provider = '') {
   const isRegister = mode === 'register';
   const isProviderLogin = Boolean(provider);
-  const title = isRegister ? 'Join the <em>market.</em>' : isProviderLogin ? `Continue with <em>${provider}.</em>` : 'Welcome <em>back.</em>';
-  const intro = isRegister ? 'Create your free account and start discovering local finds.' : isProviderLogin ? `Enter your ${provider} account details to continue.` : 'Sign in to manage your listings and save your favorite finds.';
   const action = isRegister ? 'Create account' : 'Sign in';
   const identifierLabel = provider === 'Facebook' ? 'Username or email' : 'Google email';
   const identifierType = provider === 'Facebook' ? 'text' : 'email';
-  openModal(`<h2 id="modal-title">${title}</h2>${guardMessage ? `<p class="auth-guard-message">${guardMessage}</p>` : ''}<p class="modal-intro">${intro}</p><div class="login-options">${isProviderLogin ? '' : '<button class="google-button" id="google-login">G&nbsp;&nbsp; Continue with Google</button><button class="google-button" id="facebook-login">f&nbsp;&nbsp; Continue with Facebook</button><div class="divider">or continue with email</div>'}<form id="login-form">${isRegister ? '<div class="form-field"><label for="name">Full name</label><input id="name" required placeholder="Your name"></div>' : ''}<div class="form-field"><label for="email">${isProviderLogin ? identifierLabel : 'Email address'}</label><input id="email" type="${isProviderLogin ? identifierType : 'email'}" required placeholder="${isProviderLogin && provider === 'Facebook' ? 'username or email' : 'you@example.com'}"></div><div class="form-field" style="margin-top:14px"><label for="password">Password</label><input id="password" type="password" minlength="6" required placeholder="At least 6 characters"></div><button class="button button-dark form-submit" type="submit">${action} <span>↗</span></button></form></div>`);
+  openModal(`<div class="login-options">${isProviderLogin ? '' : '<button class="google-button" id="google-login">G&nbsp;&nbsp; Continue with Google</button><button class="google-button" id="facebook-login">f&nbsp;&nbsp; Continue with Facebook</button>'}<form id="login-form">${isRegister ? '<div class="form-field"><label for="name">Full name</label><input id="name" required placeholder="Your name"></div>' : ''}<div class="form-field"><label for="email">${isProviderLogin ? identifierLabel : 'Email address'}</label><input id="email" type="${isProviderLogin ? identifierType : 'email'}" required placeholder="${isProviderLogin && provider === 'Facebook' ? 'username or email' : 'you@example.com'}"></div><div class="form-field" style="margin-top:14px"><label for="password">Password</label><input id="password" type="password" minlength="6" required placeholder="At least 6 characters"></div><button class="button button-dark form-submit" type="submit">${action} <span>↗</span></button></form></div>`);
   $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); try { if (isRegister) await registerWithEmail($('#name').value, $('#email').value, $('#password').value); else if (isProviderLogin) await signInWithProviderCredentials(provider, $('#email').value, $('#password').value); else await signInWithEmail($('#email').value, $('#password').value); continueAfterAuthentication(); } catch (error) { alert(error.message); } });
   if (!isProviderLogin) { $('#google-login').addEventListener('click', () => openLoginModal('login', 'Google')); $('#facebook-login').addEventListener('click', () => openLoginModal('login', 'Facebook')); }
 }
@@ -412,7 +447,7 @@ function setLoggedIn(user) {
   state.authenticatedUser = user;
   document.body.classList.add('is-authenticated');
   $('#app-shell').classList.add('is-authenticated');
-  $('.bottom-nav').hidden = false;
+  syncRoleControls();
   syncNavigationMode();
   const profileButton = $('#profile-button');
   profileButton.textContent = name.slice(0, 1).toUpperCase();
@@ -421,13 +456,36 @@ function setLoggedIn(user) {
   $('#profile-status').textContent = 'Account';
   const accountNavButton = $('#bottom-profile');
   accountNavButton.querySelector('span').textContent = name.slice(0, 1).toUpperCase();
-  accountNavButton.querySelector('small').textContent = 'Account';
-  accountNavButton.setAttribute('aria-label', `Account for ${name}`);
+  accountNavButton.querySelector('small').textContent = 'Profile';
+  accountNavButton.setAttribute('aria-label', `Profile for ${name}`);
   renderAccount();
   renderMyListings();
 }
 function syncFilterInputs() { $('#catalog-search').value = state.filters.query; $('#category-filter').value = state.filters.category; $('#location-filter').value = state.filters.location; $('#condition-filter').value = state.filters.condition; }
 function syncFilters() { state.filters = { query: $('#catalog-search').value, category: $('#category-filter').value, location: $('#location-filter').value, condition: $('#condition-filter').value }; saveFilters(state.filters); renderProducts(); }
+
+function searchLocation(query) {
+  window.clearTimeout(locationLookupTimer);
+  const requestSequence = ++locationLookupSequence;
+  const location = query.trim();
+  if (!location) {
+    marketplaceMap?.setView([18.539, -72.336], 12);
+    loadWeather();
+    return;
+  }
+  if (location.length < 2) return;
+
+  locationLookupTimer = window.setTimeout(async () => {
+    try {
+      const place = await geocodeLocation(location);
+      if (requestSequence !== locationLookupSequence) return;
+      marketplaceMap?.setView([place.latitude, place.longitude], 12);
+      await loadWeather({ ...place, city: place.name });
+    } catch (error) {
+      if (requestSequence === locationLookupSequence) showToast(error.message);
+    }
+  }, 450);
+}
 
 function buildFallbackWeather() {
   return {
@@ -451,25 +509,25 @@ async function requestWeatherLocation() {
   return new Promise((resolve) => {
     const savedLocation = readUserLocation();
     const savedCoordinates = readCoordinates();
-    if (savedCoordinates) return resolve(`?lat=${savedCoordinates.latitude}&lon=${savedCoordinates.longitude}`);
+    if (savedCoordinates) return resolve(savedCoordinates);
     if (!navigator.geolocation || !navigator.permissions) {
-      return resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : '');
+      return resolve({ city: savedLocation || 'Port-au-Prince' });
     }
 
     navigator.permissions.query({ name: 'geolocation' }).then((permission) => {
       if (permission.state !== 'granted') {
-        return resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : '');
+        return resolve({ city: savedLocation || 'Port-au-Prince' });
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
           saveCoordinates(position.coords.latitude, position.coords.longitude);
-          resolve(`?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+          resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude });
         },
-        () => resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : ''),
+        () => resolve({ city: savedLocation || 'Port-au-Prince' }),
         { enableHighAccuracy: false, timeout: 7000, maximumAge: 900000 }
       );
-    }).catch(() => resolve(savedLocation ? `?city=${encodeURIComponent(savedLocation)}` : ''));
+    }).catch(() => resolve({ city: savedLocation || 'Port-au-Prince' }));
   });
 }
 
@@ -482,7 +540,7 @@ function weatherIcon(condition = '') {
   return '☀';
 }
 
-export async function loadWeather() {
+export async function loadWeather(location = null) {
   const banners = [...document.querySelectorAll('#gate-weather, #meteo-banner')];
   if (!banners.length) return;
 
@@ -520,16 +578,18 @@ export async function loadWeather() {
   };
 
   try {
-    const weather = await fetchWeather(await requestWeatherLocation());
+    const weather = await fetchWeather(location || await requestWeatherLocation());
     const value = weather && typeof weather === 'object' ? weather : buildFallbackWeather();
     renderWeather(value);
-  } catch {
+  } catch (error) {
+    console.error('Weather forecast could not load:', error);
     renderWeather(buildFallbackWeather());
   }
 }
 
-export function initUI(products, observeAuthentication) {
+export function initUI(products, observeAuthentication, initialRole = 'buyer') {
   state.products = products;
+  state.currentMode = initialRole === 'seller' ? 'seller' : 'buyer';
   state.filters = { ...state.filters, ...readFilters() };
   const preferences = readPreferences();
   if (preferences.compactMode) document.body.classList.add('compact-mode');
@@ -538,9 +598,11 @@ export function initUI(products, observeAuthentication) {
     if (user) setLoggedIn(user);
     else {
       state.authenticatedUser = null;
+      state.currentMode = 'buyer';
+      localStorage.removeItem(DASHBOARD_ROLE_KEY);
       document.body.classList.remove('is-authenticated');
       $('#app-shell').classList.remove('is-authenticated');
-      $('.bottom-nav').hidden = true;
+      document.body.classList.add('is-buyer-mode');
       $('#profile-button').textContent = 'P';
       $('#profile-button').setAttribute('aria-label', 'Log in');
       $('#profile-button').title = 'Log in';
@@ -550,16 +612,25 @@ export function initUI(products, observeAuthentication) {
       accountNavButton.querySelector('small').textContent = 'Profile';
       accountNavButton.setAttribute('aria-label', 'Profile');
       localStorage.removeItem('marketplaceUser');
+      syncRoleControls();
+      syncNavigationMode();
     }
   });
   $('#post-top-button').addEventListener('click', requireSellerAuth);
   $('#seller-nav-button').addEventListener('click', requireSellerAuth);
   $('#header-login').addEventListener('click', () => openLoginModal('login'));
   $('#header-signup').addEventListener('click', () => openLoginModal('register'));
-  $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 8; renderProducts(); });
-  $('#profile-button').addEventListener('click', () => openLoginModal('login'));
+  $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 4; renderProducts(); });
+  $('#profile-button').addEventListener('click', () => {
+    if (!state.authenticatedUser) return openLoginModal('login');
+    renderAccount();
+    openDrawer('account-drawer');
+  });
   $('#modal-close').addEventListener('click', closeModal);
   $('#modal-backdrop').addEventListener('click', (event) => { if (event.target.id === 'modal-backdrop') closeModal(); });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !$('#modal-backdrop').hidden) closeModal();
+  });
   $('#bottom-profile').addEventListener('click', () => {
     renderAccount();
     openDrawer('account-drawer');
@@ -577,18 +648,22 @@ export function initUI(products, observeAuthentication) {
     renderNotifications();
     openDrawer('notifications-drawer');
   });
-  $('#map-reset').addEventListener('click', () => marketplaceMap?.setView([18.539, -72.336], 12));
-  $$('[data-close-drawer]').forEach((button) => button.addEventListener('click', () => closeDrawer(button.dataset.closeDrawer)));
-  $('#header-search').addEventListener('input', (event) => { $('#catalog-search').value = event.target.value; syncFilters(); });
-  $('#search-toggle').addEventListener('click', () => {
-    const isOpen = $('.site-header').classList.toggle('search-open');
-    $('#search-toggle').setAttribute('aria-expanded', String(isOpen));
-    if (isOpen) $('#header-search').focus();
+  $('#map-reset').addEventListener('click', () => {
+    $('#location-filter').value = '';
+    syncFilters();
+    searchLocation('');
   });
-  $('#catalog-search').addEventListener('input', () => { state.visibleProductLimit = 8; syncFilters(); });
-  ['category-filter', 'location-filter', 'condition-filter'].forEach((id) => $(`#${id}`).addEventListener('change', () => { state.visibleProductLimit = 8; syncFilters(); }));
+  $$('[data-close-drawer]').forEach((button) => button.addEventListener('click', () => closeDrawer(button.dataset.closeDrawer)));
+  $('#catalog-search').addEventListener('input', () => { state.visibleProductLimit = 4; syncFilters(); });
+  ['category-filter', 'condition-filter'].forEach((id) => $(`#${id}`).addEventListener('change', () => { state.visibleProductLimit = 4; syncFilters(); }));
+  $('#location-filter').addEventListener('input', () => {
+    state.visibleProductLimit = 4;
+    syncFilters();
+    searchLocation($('#location-filter').value);
+  });
   $$('.category-pill').forEach((pill) => pill.addEventListener('click', () => { $$('.category-pill').forEach((item) => item.classList.remove('active')); pill.classList.add('active'); $('#category-filter').value = pill.dataset.category; syncFilters(); }));
   if (getAuthSetupMessage()) console.warn(getAuthSetupMessage());
+  syncRoleControls();
   renderFavoriteCount();
   renderLiveFeed();
   state.products = mergeListingState(state.products);
