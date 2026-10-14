@@ -151,6 +151,7 @@ function syncRoleControls() {
   $('#profile-status').hidden = !isAuthenticated;
   $('#post-top-button').hidden = !isSeller;
   $('#seller-nav-button').hidden = !isSeller;
+  $('#bottom-new').hidden = !isSeller;
   $('.bottom-nav').hidden = !isAuthenticated;
 }
 
@@ -618,6 +619,7 @@ export function initUI(products, observeAuthentication, initialRole = 'buyer') {
   });
   $('#post-top-button').addEventListener('click', requireSellerAuth);
   $('#seller-nav-button').addEventListener('click', requireSellerAuth);
+  $('#bottom-new').addEventListener('click', requireSellerAuth);
   $('#header-login').addEventListener('click', () => openLoginModal('login'));
   $('#header-signup').addEventListener('click', () => openLoginModal('register'));
   $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 4; renderProducts(); });
