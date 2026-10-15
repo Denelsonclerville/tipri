@@ -7,12 +7,19 @@ async function loadCurrencyMetadata() {
   if (!countryInfo) return;
 
   try {
+    const countryResponse = await fetch('https://restcountries.com/v3.1/name/haiti?fields=name,currencies');
+    if (!countryResponse.ok) throw new Error(`Unable to load country metadata (${countryResponse.status}).`);
+    const [country] = await countryResponse.json();
+    const countryName = country?.name?.common;
+    const currencyCode = Object.keys(country?.currencies || {})[0];
+    if (!countryName || !currencyCode) throw new Error('Country metadata is incomplete.');
+
     const response = await fetch('https://open.er-api.com/v6/latest/USD');
     if (!response.ok) throw new Error(`Unable to load exchange rates (${response.status}).`);
     const data = await response.json();
-    const rate = data?.rates?.HTG;
+    const rate = data?.rates?.[currencyCode];
     if (data.result !== 'success' || !Number.isFinite(rate)) throw new Error('Exchange-rate response is incomplete.');
-    countryInfo.textContent = `1 USD ≈ ${new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(rate)} HTG`;
+    countryInfo.textContent = `${countryName} · 1 USD ≈ ${new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(rate)} ${currencyCode}`;
   } catch (error) {
     console.error('Exchange rate could not load:', error);
     countryInfo.textContent = 'USD / HTG exchange rate unavailable';

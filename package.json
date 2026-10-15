@@ -1,24 +1,14 @@
 {
   "name": "tipri",
+  "private": true,
   "version": "1.0.0",
-  "description": "Tipri local second-hand marketplace",
-  "main": "src/index.html",
+  "type": "module",
   "scripts": {
-    "start": "vite src",
-    "build": "vite build src --emptyOutDir",
-    "lint": "eslint src/**/*.js",
-    "format": "prettier --ignore-path ./.gitignore --write \"./**/*.{html,json,js,css}\"",
+    "dev": "vite",
+    "build": "vite build",
     "preview": "vite preview"
   },
-  "license": "ISC",
   "devDependencies": {
-    "eslint": "^8.56.0",
-    "prettier": "^3.2.5",
     "vite": "^5.0.0"
-  },
-  "browserslist": [
-    "last 3 chrome versions",
-    "last 3 firefox versions",
-    "last 3 safari versions"
-  ]
+  }
 }

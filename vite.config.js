@@ -6,8 +6,11 @@ const sourceDirectory = resolve(projectDirectory, 'src');
 
 export default {
   root: sourceDirectory,
+  base: './',
   publicDir: resolve(projectDirectory, 'public'),
   build: {
+    outDir: resolve(projectDirectory, 'dist'),
+    emptyOutDir: true,
     rollupOptions: {
       input: {
         main: resolve(sourceDirectory, 'index.html'),
