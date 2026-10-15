@@ -6,7 +6,8 @@ const STORAGE_KEYS = {
   userLocation: 'marketplaceUserLocation',
   coordinates: 'marketplaceCoordinates',
   favorites: 'favorite_products',
-  listings: 'my_listings'
+  listings: 'my_listings',
+  negotiationRequests: 'negotiation_requests'
 };
 
 export function readUser() {
@@ -124,4 +125,11 @@ export function removeMyListing(listingId) {
   const listings = readMyListings().filter((item) => String(item.id) !== String(listingId));
   writeCollection(STORAGE_KEYS.listings, listings);
   return listings;
+}
+
+export function saveNegotiationRequest(request) {
+  const requests = readCollection(STORAGE_KEYS.negotiationRequests);
+  requests.unshift(request);
+  writeCollection(STORAGE_KEYS.negotiationRequests, requests);
+  return requests;
 }

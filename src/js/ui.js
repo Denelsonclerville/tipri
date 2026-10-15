@@ -1,8 +1,8 @@
 import { createProduct, deleteProduct, fetchProducts, fetchWeather, geocodeLocation, updateProduct } from './api.js';
 import { registerWithEmail, signInWithEmail, signInWithProviderCredentials, signInWithFacebook, signInWithGoogle, getAuthSetupMessage, logOut } from './auth.js';
-import { isFavorite, readCoordinates, readFavorites, readFilters, readMyListings, readPreferences, readUserLocation, removeFavorite, removeMyListing, saveCoordinates, saveFavorite, saveFilters, saveMyListing, savePreferences, saveUser, saveUserLocation, updateMyListing } from './storage.js';
+import { isFavorite, readCoordinates, readFavorites, readFilters, readMyListings, readPreferences, readUserLocation, removeFavorite, removeMyListing, saveCoordinates, saveFavorite, saveFilters, saveMyListing, saveNegotiationRequest, savePreferences, saveUser, saveUserLocation, updateMyListing } from './storage.js';
 
-export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, pendingSellerAccess: false, currentMode: 'buyer', visibleProductLimit: 4 };
+export const state = { products: [], filters: { query: '', category: '', location: '', condition: '' }, authenticatedUser: null, pendingPost: false, pendingSellerAccess: false, currentMode: 'buyer', visibleProductLimit: 4, usdToHtgRate: null };
 const DEFAULT_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80';
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -158,8 +158,6 @@ function syncRoleControls() {
   $('#header-signup').hidden = isAuthenticated;
   $('#profile-button').hidden = true;
   $('#profile-status').hidden = true;
-  $('#post-top-button').hidden = !isSeller;
-  $('#seller-nav-button').hidden = !isSeller;
   $('.bottom-nav').hidden = !isAuthenticated;
   $('#bottom-activity').hidden = !isAuthenticated;
   $('#bottom-notifications').hidden = isSeller || !isAuthenticated;
@@ -191,10 +189,91 @@ export function renderProducts() {
   $('#show-more-products').hidden = hasFilters || visibleProducts.length >= products.length;
   $('#product-grid').innerHTML = visibleProducts.map((product, index) => {
     const isSold = product.status === 'sold' || product.sold;
-    return `<article class="product-card ${isSold ? 'is-sold' : ''}" style="animation-delay: ${index * 50}ms"><div class="product-image"><img src="${escapeHtml(product.image_url || product.image)}" alt="${escapeHtml(product.title)}" loading="lazy"><span class="condition-badge ${product.condition.includes('Repair') ? 'repair' : ''}">${escapeHtml(product.condition)}</span><span class="listing-status ${isSold ? 'sold' : ''}">${isSold ? 'Sold' : 'Active'}</span><button class="favorite-button ${isFavorite(product.id) ? 'is-favorite' : ''}" data-product-id="${escapeHtml(product.id)}" aria-label="${isFavorite(product.id) ? 'Remove from favorites' : 'Add to favorites'}">${isFavorite(product.id) ? '&#9829;' : '&#9825;'}</button></div><div class="product-body"><p class="product-category">${escapeHtml(product.category)}</p><h3 class="product-title" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</h3><div class="product-meta"><strong class="product-price">${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()}</strong><span class="product-location">⌖ ${escapeHtml(product.location)}</span></div><button class="contact-button" data-product-id="${escapeHtml(product.id)}">Contact seller via WhatsApp ↗</button></div></article>`;
+    return `<article class="product-card ${isSold ? 'is-sold' : ''}" style="animation-delay: ${index * 50}ms"><div class="product-image"><img src="${escapeHtml(product.image_url || product.image)}" alt="${escapeHtml(product.title)}" loading="lazy"><span class="condition-badge ${product.condition.includes('Repair') ? 'repair' : ''}">${escapeHtml(product.condition)}</span><span class="listing-status ${isSold ? 'sold' : ''}">${isSold ? 'Sold' : 'Active'}</span><button class="favorite-button ${isFavorite(product.id) ? 'is-favorite' : ''}" data-product-id="${escapeHtml(product.id)}" aria-label="${isFavorite(product.id) ? 'Remove from favorites' : 'Add to favorites'}">${isFavorite(product.id) ? '&#9829;' : '&#9825;'}</button></div><div class="product-body"><p class="product-category">${escapeHtml(product.category)}</p><h3 class="product-title" title="${escapeHtml(product.title)}">${escapeHtml(product.title)}</h3><div class="product-meta"><strong class="product-price">${product.currency === 'USD' ? '$' : product.currency + ' '}${Number(product.price).toLocaleString()}</strong><span class="product-location">⌖ ${escapeHtml(product.location)}</span></div><button class="contact-button" data-product-id="${escapeHtml(product.id)}">Contact seller via WhatsApp ↗</button>${isSold ? '' : `<button class="specialist-button" data-specialist-product="${escapeHtml(product.id)}">Ask a specialist to negotiate <span>8% fee</span></button>`}</div></article>`;
   }).join('');
   $$('.contact-button').forEach((button) => button.addEventListener('click', () => contactSeller(state.products.find((product) => String(product.id) === button.dataset.productId))));
+  $$('.specialist-button').forEach((button) => button.addEventListener('click', () => openNegotiationModal(state.products.find((product) => String(product.id) === button.dataset.specialistProduct))));
   $$('.favorite-button').forEach((button) => button.addEventListener('click', () => toggleFavorite(button.dataset.productId)));
+}
+
+const SPECIALIST_FEE_RATE = 0.08;
+
+export function updateUsdToHtgRate(rate) {
+  state.usdToHtgRate = Number.isFinite(rate) && rate > 0 ? rate : null;
+}
+
+function negotiationFeeHtg(product) {
+  const askingPrice = Number(product.price);
+  if (!Number.isFinite(askingPrice) || askingPrice <= 0) return null;
+  const currency = String(product.currency || 'USD').toUpperCase();
+  if (currency === 'HTG') return askingPrice * SPECIALIST_FEE_RATE;
+  if (currency === 'USD' && Number.isFinite(state.usdToHtgRate)) {
+    return askingPrice * SPECIALIST_FEE_RATE * state.usdToHtgRate;
+  }
+  return null;
+}
+
+function formatHtg(amount) {
+  return `${new Intl.NumberFormat('fr-HT', { maximumFractionDigits: 0 }).format(Math.round(amount))} HTG`;
+}
+
+function openNegotiationModal(product) {
+  if (!product || product.status === 'sold' || product.sold) return;
+  if (!state.authenticatedUser) return openLoginModal('login');
+
+  const askingPrice = Number(product.price);
+  const currency = String(product.currency || 'USD').toUpperCase();
+  const fee = negotiationFeeHtg(product);
+  const rateUnavailable = fee === null;
+  const askingPriceLabel = currency === 'USD'
+    ? `$${askingPrice.toLocaleString()} USD`
+    : `${askingPrice.toLocaleString()} ${currency}`;
+  const conversionLabel = currency === 'USD' && Number.isFinite(state.usdToHtgRate)
+    ? `Estimated with 1 USD ≈ ${state.usdToHtgRate.toFixed(2)} HTG.`
+    : '';
+
+  openModal(`<h2 id="modal-title">Ask a specialist to <em>negotiate.</em></h2>
+    <p class="modal-intro">A specialist will negotiate this listing on your behalf. The service fee is 8% of the seller's current asking price.</p>
+    <div class="negotiation-summary">
+      <strong>${escapeHtml(product.title)}</strong>
+      <span>Seller's asking price: ${escapeHtml(askingPriceLabel)}</span>
+      <b>${rateUnavailable ? 'HTG estimate unavailable' : `${formatHtg(fee)} estimated service fee`}</b>
+      ${conversionLabel ? `<small>${escapeHtml(conversionLabel)}</small>` : ''}
+    </div>
+    ${rateUnavailable ? '<p class="negotiation-error" role="alert">We cannot calculate the HTG estimate right now. Try again when the exchange rate is available.</p>' : ''}
+    <form id="negotiation-form">
+      <fieldset class="payment-methods" ${rateUnavailable ? 'disabled' : ''}>
+        <legend>Choose a payment method</legend>
+        <label><input type="radio" name="paymentMethod" value="MonCash" required><span>MonCash</span></label>
+        <label><input type="radio" name="paymentMethod" value="NatCash" required><span>NatCash</span></label>
+      </fieldset>
+      <div class="form-field"><label for="negotiation-note">What would you like the specialist to negotiate?</label><textarea id="negotiation-note" name="note" maxlength="500" placeholder="For example, your target price or questions about the item."></textarea></div>
+      <p class="payment-demo-notice" role="note"><strong>Demo only.</strong> This does not charge you, contact a specialist, or send a request to MonCash/NatCash. The request is saved only in this browser.</p>
+      <button class="button button-dark form-submit" type="submit" ${rateUnavailable ? 'disabled' : ''}>Save demo request</button>
+    </form>`);
+
+  $('#negotiation-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const formData = new FormData(form);
+    saveNegotiationRequest({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      productId: product.id,
+      productTitle: product.title,
+      askingPrice,
+      productCurrency: currency,
+      serviceFeePercent: SPECIALIST_FEE_RATE * 100,
+      estimatedServiceFeeHtg: Math.round(fee),
+      usdToHtgRate: currency === 'USD' ? state.usdToHtgRate : null,
+      paymentMethod: formData.get('paymentMethod'),
+      note: String(formData.get('note') || '').trim(),
+      createdAt: new Date().toISOString(),
+      status: 'demo_only'
+    });
+    closeModal();
+    showToast('Demo request saved in this browser. No payment was made and no specialist was contacted.');
+  });
 }
 
 function contactSeller(product) {
@@ -632,8 +711,6 @@ export function initUI(products, observeAuthentication, initialRole = 'buyer') {
       renderFavoriteCount();
     }
   });
-  $('#post-top-button').addEventListener('click', requireSellerAuth);
-  $('#seller-nav-button').addEventListener('click', requireSellerAuth);
   $('#header-login').addEventListener('click', () => openLoginModal('login'));
   $('#header-signup').addEventListener('click', () => openLoginModal('register'));
   $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 4; renderProducts(); });

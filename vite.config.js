@@ -7,7 +7,7 @@ const sourceDirectory = resolve(projectDirectory, 'src');
 export default {
   root: sourceDirectory,
   base: './',
-  publicDir: resolve(projectDirectory, 'public'),
+  publicDir: resolve(sourceDirectory, 'public'),
   build: {
     outDir: resolve(projectDirectory, 'dist'),
     emptyOutDir: true,

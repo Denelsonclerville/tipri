@@ -1,6 +1,6 @@
 import { fetchProducts } from './api.js';
 import { observeAuth } from './auth.js';
-import { enterDashboard, initUI, initWelcomeUI, loadWeather } from './ui.js';
+import { enterDashboard, initUI, initWelcomeUI, loadWeather, updateUsdToHtgRate } from './ui.js';
 
 async function loadCurrencyMetadata() {
   const countryInfo = document.querySelector('#country-info');
@@ -19,9 +19,11 @@ async function loadCurrencyMetadata() {
     const data = await response.json();
     const rate = data?.rates?.[currencyCode];
     if (data.result !== 'success' || !Number.isFinite(rate)) throw new Error('Exchange-rate response is incomplete.');
+    updateUsdToHtgRate(currencyCode === 'HTG' ? rate : null);
     countryInfo.textContent = `${countryName} · 1 USD ≈ ${new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(rate)} ${currencyCode}`;
   } catch (error) {
     console.error('Exchange rate could not load:', error);
+    updateUsdToHtgRate(null);
     countryInfo.textContent = 'USD / HTG exchange rate unavailable';
   }
 }
