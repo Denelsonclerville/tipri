@@ -1,0 +1,18 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const projectDirectory = dirname(fileURLToPath(import.meta.url));
+const sourceDirectory = resolve(projectDirectory, 'src');
+
+export default {
+  root: sourceDirectory,
+  publicDir: resolve(projectDirectory, 'public'),
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(sourceDirectory, 'index.html'),
+        dashboard: resolve(sourceDirectory, 'dashboard.html')
+      }
+    }
+  }
+};

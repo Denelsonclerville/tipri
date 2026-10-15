@@ -30,8 +30,13 @@ function mergeListingState(products) {
 }
 
 function renderFavoriteCount() {
-  const count = $('#favorite-count');
-  if (count) count.textContent = String(readFavorites().length);
+  const count = $('#bottom-activity-count');
+  if (count && state.currentMode === 'buyer') {
+    const favoriteCount = readFavorites().length;
+    count.textContent = String(favoriteCount);
+    count.hidden = favoriteCount === 0;
+    $('#bottom-activity').setAttribute('aria-label', `Favorites, ${favoriteCount} saved items`);
+  }
   const button = $('#bottom-favorites');
   if (button) button.setAttribute('aria-label', `Saved favorites, ${readFavorites().length} items`);
 }
@@ -91,6 +96,9 @@ function renderLiveFeed() {
 }
 
 function openDrawer(id) {
+  ['favorites-drawer', 'listings-drawer', 'account-drawer', 'notifications-drawer'].forEach((drawerId) => {
+    if (drawerId !== id) $(`#${drawerId}`).hidden = true;
+  });
   $(`#${id}`).hidden = false;
   document.body.style.overflow = 'hidden';
 }
@@ -109,10 +117,10 @@ function renderFavorites() {
 
 function renderMyListings() {
   const listings = readMyListings().filter((listing) => listing.ownerId === currentUserId());
-  const countBadge = $('#listing-count-badge');
+  const countBadge = $('#bottom-activity-count');
   if (countBadge) {
     countBadge.textContent = String(listings.length);
-    countBadge.hidden = listings.length === 0;
+    countBadge.hidden = state.currentMode !== 'seller' || listings.length === 0;
   }
   $('#listings-content').innerHTML = listings.length ? `<div class="seller-list">${listings.map((listing) => `<article class="seller-item"><img src="${escapeHtml(listing.image_url || listing.image)}" alt="${escapeHtml(listing.title)}"><div><h3>${escapeHtml(listing.title)}</h3><p>${listing.currency === 'USD' ? '$' : listing.currency + ' '}${Number(listing.price).toLocaleString()} · <span class="seller-status ${listing.status === 'Sold' ? 'sold' : ''}">${escapeHtml(listing.status)}</span></p><div class="seller-actions"><button class="drawer-action" data-listing-edit="${escapeHtml(listing.id)}">Edit Price/Description</button><button class="drawer-action" data-listing-toggle="${escapeHtml(listing.id)}">Mark as ${listing.status === 'Sold' ? 'Active' : 'Sold'}</button><button class="drawer-action danger" data-listing-delete="${escapeHtml(listing.id)}">Delete Listing</button></div></div></article>`).join('')}</div>` : '<p class="drawer-empty">You have not posted any listings yet.</p>';
   $$('[data-listing-edit]').forEach((button) => button.addEventListener('click', () => openListingEditor(button.dataset.listingEdit)));
@@ -136,7 +144,8 @@ function syncNavigationMode() {
   $('#bottom-activity-label').textContent = isSeller ? 'My listings' : 'Favorites';
   $('#bottom-activity').setAttribute('aria-label', isSeller ? 'My listings' : 'Favorites');
   $('#bottom-activity').querySelector('span').textContent = isSeller ? '▣' : '♡';
-  $('#listing-count-badge').hidden = !isSeller || Number($('#listing-count-badge').textContent) === 0;
+  const activityCount = $('#bottom-activity-count');
+  activityCount.hidden = Number(activityCount.textContent) === 0;
 }
 
 function syncRoleControls() {
@@ -147,12 +156,14 @@ function syncRoleControls() {
   shell.classList.toggle('seller-mode', isSeller);
   $('#header-login').hidden = isAuthenticated;
   $('#header-signup').hidden = isAuthenticated;
-  $('#profile-button').hidden = !isAuthenticated;
-  $('#profile-status').hidden = !isAuthenticated;
+  $('#profile-button').hidden = true;
+  $('#profile-status').hidden = true;
   $('#post-top-button').hidden = !isSeller;
   $('#seller-nav-button').hidden = !isSeller;
-  $('#bottom-new').hidden = !isSeller;
   $('.bottom-nav').hidden = !isAuthenticated;
+  $('#bottom-activity').hidden = !isAuthenticated;
+  $('#bottom-notifications').hidden = isSeller || !isAuthenticated;
+  $('#bottom-new').hidden = !isSeller;
 }
 
 async function refreshCatalog() {
@@ -239,8 +250,10 @@ export function enterDashboard(role) {
   if (welcomeGate) welcomeGate.hidden = true;
   document.body.classList.remove('welcome-page');
   const dashboardView = $('#dashboard-view');
-  dashboardView.hidden = false;
-  dashboardView.classList.remove('hidden');
+  if (dashboardView) {
+    dashboardView.hidden = false;
+    dashboardView.classList.remove('hidden');
+  }
   const shell = $('#app-shell');
   shell.hidden = false;
   shell.classList.add('is-visible');
@@ -461,6 +474,7 @@ function setLoggedIn(user) {
   accountNavButton.setAttribute('aria-label', `Profile for ${name}`);
   renderAccount();
   renderMyListings();
+  renderFavoriteCount();
 }
 function syncFilterInputs() { $('#catalog-search').value = state.filters.query; $('#category-filter').value = state.filters.category; $('#location-filter').value = state.filters.location; $('#condition-filter').value = state.filters.condition; }
 function syncFilters() { state.filters = { query: $('#catalog-search').value, category: $('#category-filter').value, location: $('#location-filter').value, condition: $('#condition-filter').value }; saveFilters(state.filters); renderProducts(); }
@@ -615,11 +629,11 @@ export function initUI(products, observeAuthentication, initialRole = 'buyer') {
       localStorage.removeItem('marketplaceUser');
       syncRoleControls();
       syncNavigationMode();
+      renderFavoriteCount();
     }
   });
   $('#post-top-button').addEventListener('click', requireSellerAuth);
   $('#seller-nav-button').addEventListener('click', requireSellerAuth);
-  $('#bottom-new').addEventListener('click', requireSellerAuth);
   $('#header-login').addEventListener('click', () => openLoginModal('login'));
   $('#header-signup').addEventListener('click', () => openLoginModal('register'));
   $('#show-more-products').addEventListener('click', () => { state.visibleProductLimit += 4; renderProducts(); });
@@ -632,6 +646,11 @@ export function initUI(products, observeAuthentication, initialRole = 'buyer') {
   $('#modal-backdrop').addEventListener('click', (event) => { if (event.target.id === 'modal-backdrop') closeModal(); });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !$('#modal-backdrop').hidden) closeModal();
+    if (event.key === 'Escape') {
+      const activeDrawer = ['favorites-drawer', 'listings-drawer', 'account-drawer', 'notifications-drawer']
+        .find((id) => !$(`#${id}`).hidden);
+      if (activeDrawer) closeDrawer(activeDrawer);
+    }
   });
   $('#bottom-profile').addEventListener('click', () => {
     renderAccount();
@@ -650,6 +669,7 @@ export function initUI(products, observeAuthentication, initialRole = 'buyer') {
     renderNotifications();
     openDrawer('notifications-drawer');
   });
+  $('#bottom-new').addEventListener('click', requireSellerAuth);
   $('#map-reset').addEventListener('click', () => {
     $('#location-filter').value = '';
     syncFilters();
@@ -672,10 +692,4 @@ export function initUI(products, observeAuthentication, initialRole = 'buyer') {
   syncNavigationMode();
   initializeMap();
   renderProducts();
-  window.setInterval(() => {
-    if (!Object.values(state.filters).some(Boolean)) {
-      featuredProductIds = [];
-      renderProducts();
-    }
-  }, 18000);
 }

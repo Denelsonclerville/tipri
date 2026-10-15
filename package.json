@@ -4,8 +4,8 @@
   "description": "Tipri local second-hand marketplace",
   "main": "src/index.html",
   "scripts": {
-    "start": "vite src --publicDir ../public",
-    "build": "vite build src --emptyOutDir --publicDir ../public",
+    "start": "vite src",
+    "build": "vite build src --emptyOutDir",
     "lint": "eslint src/**/*.js",
     "format": "prettier --ignore-path ./.gitignore --write \"./**/*.{html,json,js,css}\"",
     "preview": "vite preview"

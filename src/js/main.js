@@ -2,21 +2,20 @@ import { fetchProducts } from './api.js';
 import { observeAuth } from './auth.js';
 import { enterDashboard, initUI, initWelcomeUI, loadWeather } from './ui.js';
 
-async function loadCountryMetadata() {
+async function loadCurrencyMetadata() {
   const countryInfo = document.querySelector('#country-info');
   if (!countryInfo) return;
 
   try {
-    const response = await fetch('https://restcountries.com/v3.1/alpha/ht?fields=name,currencies');
-    if (!response.ok) throw new Error(`Unable to load country details (${response.status}).`);
-    const [country] = await response.json();
-    const name = country?.name?.common;
-    const currency = Object.keys(country?.currencies || {})[0];
-    if (!name || !currency) throw new Error('Country details response is incomplete.');
-    countryInfo.textContent = `${name} · ${currency}`;
+    const response = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!response.ok) throw new Error(`Unable to load exchange rates (${response.status}).`);
+    const data = await response.json();
+    const rate = data?.rates?.HTG;
+    if (data.result !== 'success' || !Number.isFinite(rate)) throw new Error('Exchange-rate response is incomplete.');
+    countryInfo.textContent = `1 USD ≈ ${new Intl.NumberFormat('en', { maximumFractionDigits: 2 }).format(rate)} HTG`;
   } catch (error) {
-    console.error('Regional metadata could not load:', error);
-    countryInfo.textContent = 'Haiti · Regional details unavailable';
+    console.error('Exchange rate could not load:', error);
+    countryInfo.textContent = 'USD / HTG exchange rate unavailable';
   }
 }
 
@@ -42,7 +41,7 @@ async function startApplication() {
       : 'buyer';
     enterDashboard(activeRole);
   }
-  await Promise.all([loadWeather(), loadCountryMetadata()]);
+  await Promise.all([loadWeather(), loadCurrencyMetadata()]);
 }
 
 startApplication();

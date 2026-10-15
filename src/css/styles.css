@@ -672,6 +672,18 @@ h2 em {
   border-color: var(--teal);
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1297,20 +1309,19 @@ footer#contact #country-info {
 .bottom-nav:not([hidden]) {
   position: fixed;
   z-index: 30;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 16px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  width: min(100%, 560px);
-  min-height: 68px;
+  width: min(560px, calc(100% - 32px));
+  min-height: 66px;
   margin: 0 auto;
-  padding: 8px 14px max(8px, env(safe-area-inset-bottom));
+  padding: 8px 14px;
   border: 1px solid rgba(223, 231, 225, 0.9);
-  border-bottom: 0;
-  border-radius: 18px 18px 0 0;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 -8px 28px rgba(23, 34, 30, 0.09);
+  box-shadow: 0 12px 36px rgba(23, 34, 30, 0.16);
   backdrop-filter: blur(16px);
 }
 
@@ -1321,6 +1332,7 @@ footer#contact #country-info {
   align-content: center;
   gap: 3px;
   min-height: 48px;
+  padding: 5px 8px;
   border-radius: 10px;
   color: var(--muted);
   background: transparent;
@@ -1355,7 +1367,7 @@ footer#contact #country-info {
 }
 
 .app-shell.is-authenticated {
-  padding-bottom: 68px;
+  padding-bottom: 100px;
 }
 
 .drawer:not([hidden]) {
